@@ -17,6 +17,7 @@ server, or similar. No browser, no accounts: just you and the model.
 - **File context**: attach files to the conversation (`/add`); contents are
   re-read fresh on every send
 - **Rich Markdown** rendering: code blocks, tables, lists, quotes
+- **Chat scrollbar** for long conversations (shown only when scrollable; scroll with `Ctrl-u`/`Ctrl-d`)
 - **History editing** in `$EDITOR`, command completion, filterable popups
 
 ## Requirements
@@ -82,6 +83,7 @@ Type a slash command in the input line; `Tab` / `Shift-Tab` cycle completion.
 | `/drop`           | Remove an attached file                                       |
 | `/files`          | Show a summary of attached files in the chat                  |
 | `/edit`           | Edit the whole chat history in `$EDITOR`                      |
+| `/preview`        | Read the chat history in `$EDITOR` (read-only; edits ignored) |
 | `/editor [text]`  | Compose the pending message in `$EDITOR`                      |
 | `/copy`           | Copy the last reply to the clipboard                          |
 | `/regenerate`     | Discard the last reply and re-generate it                     |
@@ -95,7 +97,7 @@ Type a slash command in the input line; `Tab` / `Shift-Tab` cycle completion.
 | `Enter`                  | Send message / run command         |
 | `Tab` / `Shift-Tab`      | Cycle command completion           |
 | `Ctrl+o`                 | Compose current input in `$EDITOR` |
-| `Ctrl-u` / `Ctrl-d`      | Scroll chat up / down              |
+| `Ctrl-u` / `Ctrl-d`      | Scroll chat up / down (10 rows)    |
 | `Esc` `Esc` (within 1 s) | Abort streaming                    |
 | `Ctrl+C`                 | Quit                               |
 
@@ -136,3 +138,9 @@ explore a different direction.
   (typically local servers).
 - **`/edit` or `/editor` opens an unexpected editor** — set `$EDITOR`
   (otherwise `vim` is used).
+- **Just want to browse the chat, not change it** — use `/preview`; it opens the
+  same conversation in `$EDITOR` but ignores everything you type, so the session
+  is never modified.
+- **Garbled screen after an external editor** — Dejima clears and redraws the
+  terminal automatically; if it persists (e.g. after a crash), quit and run the
+  shell's `reset` command to restore your terminal.
