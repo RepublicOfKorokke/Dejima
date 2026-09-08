@@ -1,8 +1,6 @@
 # Dejima
 
-
 https://github.com/user-attachments/assets/062cb66c-c09c-42f0-8aea-4468ec83fd08
-
 
 LLM chat in your terminal. Dejima is a fast, keyboard-only chat client for any
 **OpenAI-compatible** server you run yourself — Ollama, LM Studio, llama.cpp
@@ -12,12 +10,14 @@ server, or similar. No browser, no accounts: just you and the model.
 
 - **Streaming chat** with per-response telemetry (tokens/s, time-to-first-token)
 - **Reasoning display** for models that expose chain-of-thought
-- **Sessions**: create, rename, delete, switch, branch — auto-saved between runs
+- **Sessions**: create, rename, delete, switch, branch — auto-named and
+  auto-saved between runs
 - **Prompt templates**: a personal library of system prompts, edited in `$EDITOR`
 - **File context**: attach files to the conversation (`/add`); contents are
   re-read fresh on every send
 - **Rich Markdown** rendering: code blocks, tables, lists, quotes
-- **Chat scrollbar** for long conversations (shown only when scrollable; scroll with `Ctrl-u`/`Ctrl-d`)
+- **Chat scrollbar** for long conversations (shown only when scrollable; scroll
+  with `Ctrl-u`/`Ctrl-d`)
 - **History editing** in `$EDITOR`, command completion, filterable popups
 
 ## Requirements
@@ -27,6 +27,17 @@ server, or similar. No browser, no accounts: just you and the model.
   box; **remote services that require API keys are not supported yet** — see
   Troubleshooting)
 - Optional: a value for `$EDITOR` (falls back to `vim`)
+
+## Run
+
+No installation is needed: use the compiled binary provided with this
+repository and start it in a terminal with an interactive TTY:
+
+```bash
+./Dejima
+```
+
+Configuration is created on demand under `~/.config/dejima/` (see below).
 
 ## Configuration
 
@@ -55,8 +66,13 @@ name     = "local-llama"
 endpoint = "http://localhost:1234/v1/chat/completions"    # LM Studio
 ```
 
-If `models.toml` is missing or empty, Dejima exits at startup with a clear
-error — that is intentional.
+Each `[[model]]` block declares one model:
+
+- `name` — display name shown in the model popup; must be unique.
+- `endpoint` — full Chat Completions URL for the model server.
+
+The file must contain at least one model; if it is missing or empty, Dejima
+exits at startup with a clear error — that is intentional.
 
 ### config.toml (optional)
 
@@ -65,14 +81,37 @@ default_model  = "qwen-32b"    # defaults to the first model in models.toml
 default_prompt = "rust-expert" # optional system prompt template name
 ```
 
+- `default_model` — model name (must match a name in `models.toml`). If
+  omitted, the first model is used.
+- `default_prompt` — prompt file name (a `.md` file in `prompts/`, without
+  extension). If omitted, no system prompt is used by default.
+
+### prompts/
+
+System prompt templates, one Markdown file per prompt; the file name (minus
+`.md`) is the template's display name. Example
+`~/.config/dejima/prompts/rust-expert.md`:
+
+```markdown
+You are an expert Rust developer. Write idiomatic, safe, and efficient Rust
+code. Follow best practices including proper error handling with Result and
+Option types.
+```
+
+Manage them from the `/prompt` popup: create with `n` (name → `$EDITOR`),
+edit with `e`, rename with `r`, delete with `d` (confirm `y`), clear the
+active prompt with `c`. You can also edit the `.md` files directly.
+
 ## Using Dejima
 
 Type a message, press `Enter`. The reply streams in live. Two `Esc` presses
-within one second abort a stream (the partial answer is kept).
+within one second abort a stream (the partial answer is kept). Anything that
+doesn't match a slash command is sent as a message.
 
 ### Commands
 
-Type a slash command in the input line; `Tab` / `Shift-Tab` cycle completion.
+Type a slash command in the input line; `Tab` / `Shift-Tab` (or `Ctrl-n` /
+`Ctrl-p`) cycle completion.
 
 | Command           | What it does                                                  |
 | ----------------- | ------------------------------------------------------------- |
@@ -87,33 +126,61 @@ Type a slash command in the input line; `Tab` / `Shift-Tab` cycle completion.
 | `/editor [text]`  | Compose the pending message in `$EDITOR`                      |
 | `/copy`           | Copy the last reply to the clipboard                          |
 | `/regenerate`     | Discard the last reply and re-generate it                     |
-| `/generate-title` | Name the session automatically from the conversation          |
+| `/generate-title` | Name the session from the whole conversation (one line)       |
 | `/quit`           | Quit                                                          |
 
 ### Keyboard
 
-| Keys                     | Action                             |
-| ------------------------ | ---------------------------------- |
-| `Enter`                  | Send message / run command         |
-| `Tab` / `Shift-Tab`      | Cycle command completion           |
-| `Ctrl+o`                 | Compose current input in `$EDITOR` |
-| `Ctrl-u` / `Ctrl-d`      | Scroll chat up / down (10 rows)    |
-| `Esc` `Esc` (within 1 s) | Abort streaming                    |
-| `Ctrl+C`                 | Quit                               |
+| Keys                                       | Action                                       |
+| ------------------------------------------ | -------------------------------------------- |
+| `Enter`                                    | Send message / run command                   |
+| `/`                                        | Start a slash command (completion available) |
+| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion             |
+| `Esc`                                      | Cancel command completion                    |
+| `Ctrl+o`                                   | Compose current input in `$EDITOR`           |
+| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)              |
+| `Esc` `Esc` (within 1 s)                   | Abort streaming                              |
+| `Ctrl+C`                                   | Quit                                         |
 
-In popups:
+### In popups
 
-| Keys                                       | Action                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------- |
-| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Next / previous item                                                      |
-| `Ctrl-f`                                   | Filter the list (letters narrow it, `Backspace` edits, `Esc` ends filter) |
-| `Enter`                                    | Select / confirm                                                          |
-| `Esc`                                      | Close popup                                                               |
-| `n` / `r` / `d` / `b`                      | Session popup: new / rename / delete / branch                             |
-| `n` / `e` / `r` / `d` / `c`                | Prompt popup: new / edit / rename / delete / clear                        |
-| `Space` / `Ctrl-a`                         | File browser: toggle selection / select all                               |
-| `Backspace`                                | File browser: go to parent folder                                         |
-| `y` / `n`                                  | Confirm or cancel a delete                                                |
+Every popup supports: `Tab` / `Shift-Tab` (or `Ctrl-n` / `Ctrl-p`) to move,
+`Ctrl-f` to filter (letters narrow the list, `Backspace` edits, `Esc` ends the
+filter), and `Esc` to close (or step back from a name/confirm prompt).
+
+**Session popup** (`/session`)
+
+| Key     | Action                                                  |
+| ------- | ------------------------------------------------------- |
+| `Enter` | Switch to selected session                              |
+| `n`     | New session (enter a name; blank = auto-named)          |
+| `r`     | Rename selected session                                 |
+| `d`     | Delete selected session (confirm with `y` / cancel `n`) |
+| `b`     | Branch (clone) selected session                         |
+
+**Prompt popup** (`/prompt`)
+
+| Key     | Action                                                 |
+| ------- | ------------------------------------------------------ |
+| `Enter` | Select prompt as the active system prompt              |
+| `n`     | Create new prompt (name → `$EDITOR`)                   |
+| `e`     | Edit selected prompt in `$EDITOR`                      |
+| `r`     | Rename selected prompt                                 |
+| `d`     | Delete selected prompt (confirm with `y` / cancel `n`) |
+| `c`     | Clear the system prompt (chat with none)               |
+
+**Model popup** (`/model`): navigate, filter, `Enter` selects the active model.
+
+**File browser** (`/add`): `Enter` enters directories; `Space` toggles file
+selection, `Ctrl-a` selects all, `Enter` adds the selected files, `Backspace`
+goes to the parent folder.
+
+**Drop popup** (`/drop`): lists attached files; `Enter` detaches the selected
+one.
+
+The session and prompt popups stay open after their list operations (session:
+delete, rename, branch; prompt: delete, rename) with a refreshed list and your
+cursor/filter kept in place, so you can run several operations back to back.
 
 ### Working with files
 
@@ -125,9 +192,15 @@ what is attached.
 
 ### Sessions
 
-Dejima auto-saves each session once you send your first message. Branching
-(`/session` → `b`) clones the current conversation into a new session so you can
-explore a different direction.
+Dejima auto-saves each session (a TOML file under `~/.config/dejima/sessions/`)
+once you send your first message, and on every send after that. Sessions
+created without a name are **auto-named** from that first message — the query's
+first 30 characters plus the active system prompt (e.g.
+`fix the login bug_coder`) — and can be renamed anytime with `/session` → `r`
+or titled with `/generate-title`. Branching (`/session` → `b`) clones the
+current conversation into a new session so you can explore a different
+direction; a blank branch name is derived the same way from the original
+conversation. The session header shows the current name and active prompt.
 
 ## Troubleshooting
 
