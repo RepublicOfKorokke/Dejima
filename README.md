@@ -113,21 +113,21 @@ doesn't match a slash command is sent as a message.
 Type a slash command in the input line; `Tab` / `Shift-Tab` (or `Ctrl-n` /
 `Ctrl-p`) cycle completion.
 
-| Command           | What it does                                                  |
-| ----------------- | ------------------------------------------------------------- |
-| `/session`        | Sessions popup: create, rename, delete, branch, switch        |
-| `/model`          | Choose the active model                                       |
-| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear |
-| `/add`            | Attach file(s) to the conversation (file browser popup)       |
-| `/drop`           | Remove an attached file                                       |
-| `/files`          | Show a summary of attached files in the chat                  |
-| `/edit`           | Edit the whole chat history in `$EDITOR`                      |
-| `/preview`        | Read the chat history in `$EDITOR` (read-only; edits ignored) |
-| `/editor [text]`  | Compose the pending message in `$EDITOR`                      |
-| `/copy`           | Copy the last reply to the clipboard                          |
-| `/regenerate`     | Discard the last reply and re-generate it                     |
-| `/generate-title` | Name the session from the whole conversation (one line)       |
-| `/quit`           | Quit                                                          |
+| Command           | What it does                                                    |
+| ----------------- | --------------------------------------------------------------- |
+| `/session`        | Sessions popup: create, rename, delete, branch, switch, preview |
+| `/model`          | Choose the active model                                         |
+| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear   |
+| `/add`            | Attach file(s) to the conversation (file browser popup)         |
+| `/drop`           | Remove an attached file                                         |
+| `/files`          | Show a summary of attached files in the chat                    |
+| `/edit`           | Edit the whole chat history in `$EDITOR`                        |
+| `/preview`        | Read the chat history in `$EDITOR` (read-only; edits ignored)   |
+| `/editor [text]`  | Compose the pending message in `$EDITOR`                        |
+| `/copy`           | Copy the last reply to the clipboard                            |
+| `/regenerate`     | Discard the last reply and re-generate it                       |
+| `/generate-title` | Name the session from the whole conversation (one line)         |
+| `/quit`           | Quit                                                            |
 
 ### Keyboard
 
@@ -150,13 +150,18 @@ filter), and `Esc` to close (or step back from a name/confirm prompt).
 
 **Session popup** (`/session`)
 
-| Key     | Action                                                  |
-| ------- | ------------------------------------------------------- |
-| `Enter` | Switch to selected session                              |
-| `n`     | New session (enter a name; blank = auto-named)          |
-| `r`     | Rename selected session                                 |
-| `d`     | Delete selected session (confirm with `y` / cancel `n`) |
-| `b`     | Branch (clone) selected session                         |
+| Key     | Action                                                      |
+| ------- | ----------------------------------------------------------- |
+| `Enter` | Switch to selected session                                  |
+| `p`     | Preview selected session in the chat (press again to close) |
+| `n`     | New session (enter a name; blank = auto-named)              |
+| `r`     | Rename selected session                                     |
+| `d`     | Delete selected session (confirm with `y` / cancel `n`)     |
+| `b`     | Branch (clone) selected session                             |
+
+The preview renders the selected session's real messages in the main chat
+area _behind_ the popup, under a `[preview] {name}` banner; it does not
+change the active session and clears when the popup closes.
 
 **Prompt popup** (`/prompt`)
 
