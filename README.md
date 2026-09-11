@@ -142,6 +142,40 @@ Type a slash command in the input line; `Tab` / `Shift-Tab` (or `Ctrl-n` /
 | `Esc` `Esc` (within 1 s)                   | Abort streaming                              |
 | `Ctrl+C`                                   | Quit                                         |
 
+All of these keys (and every popup key below) can be remapped in the
+`[keys]` section of `~/.config/dejima/config.toml` — see
+[Custom keybindings](#custom-keybindings).
+
+### Custom keybindings
+
+Add a `[keys]` section to `~/.config/dejima/config.toml`. Each entry maps an
+**action id** to one key spec or a list of key specs; any action you don't
+list keeps its default, and listed actions replace their defaults entirely:
+
+```toml
+[keys]
+scroll_up = ["ctrl+u", "pageup"]   # add an alternate key
+session_new = "N"                  # single spec replaces the default
+quit = ["ctrl+c", "ctrl+q"]
+```
+
+Key specs are lowercase key names joined with `+`: modifiers `ctrl`, `alt`,
+`shift` (optional, informational), then the key — letters/digits (`n`, `N`),
+`enter`, `esc`, `tab`, `shift+tab`, `backspace`, `delete`, `space`, `up` /
+`down` / `left` / `right`, `home`, `end`, `pageup`, `pagedown`, `f1`…`f12`.
+Unknown action ids, unknown key names, duplicate specs, and two actions
+sharing a key in the same popup fail at startup with a precise message.
+
+Available action ids: `quit`, `open_editor`, `submit_message`, `cancel`,
+`delete_char`, `scroll_up`, `scroll_down`, `completion_next`,
+`completion_prev`, `list_next`, `list_prev`, `filter_toggle`, `list_close`,
+`text_submit`, `text_cancel`, `session_new`, `session_rename`,
+`session_delete`, `session_branch`, `session_preview`, `session_open`,
+`confirm_yes`, `confirm_no`, `prompt_select`, `prompt_delete`, `prompt_new`,
+`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`,
+`file_toggle`, `file_select_all`, `file_add`, `file_parent`, `drop_confirm`.
+Free-text typing is not remappable.
+
 ### In popups
 
 Every popup supports: `Tab` / `Shift-Tab` (or `Ctrl-n` / `Ctrl-p`) to move,
