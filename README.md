@@ -82,14 +82,18 @@ default_model  = "qwen-32b"     # defaults to the first model in models.toml
 default_prompt = "rust-expert"  # optional system prompt template name
 # hook_command = "terminal-notifier -title 'Dejima' -message 'done'"  # run after every LLM response
 # hook_shell   = "zsh -l -c"    # shell invocation prefix for the hook; default "sh -c"
+# stream_fps   = 10             # streaming redraw cap (1-120); default 30
+# editor_command = "nvim"      # editor for Dejima's editor flows; overrides $EDITOR
 ```
 
-| Field            | Description                                                                    |
-| :--------------- | :----------------------------------------------------------------------------- |
-| `default_model`  | Model name (must match `models.toml`). Defaults to the first model if omitted. |
-| `default_prompt` | Prompt file name in `prompts/` (without extension).                            |
-| `hook_command`   | Shell command to run after every LLM response.                                 |
-| `hook_shell`     | Shell invocation prefix for the hook (default: `"sh -c"`).                     |
+| Field            | Description                                                                                                                              |
+| :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `default_model`  | Model name (must match `models.toml`). Defaults to the first model if omitted.                                                           |
+| `default_prompt` | Prompt file name in `prompts/` (without extension).                                                                                      |
+| `hook_command`   | Shell command to run after every LLM response.                                                                                           |
+| `hook_shell`     | Shell invocation prefix for the hook (default: `"sh -c"`).                                                                               |
+| `stream_fps`     | Streaming redraw cap in fps (1–120, default 30). Lower it to reduce CPU usage.                                                           |
+| `editor_command` | Editor used by `/editor`, `/edit`, `/preview`, `Ctrl+o` (ADR-0040 shell syntax). Overrides `$EDITOR`; defaults to `$EDITOR`, then `vim`. |
 
 > **Warning**: The shell must accept the command as its final argument (e.g., `zsh -l -c`). Using a bare `hook_shell = "sh"` will fail.
 
@@ -169,10 +173,10 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 
 ## Troubleshooting
 
-| Issue                            | Resolution                                     |
-| :------------------------------- | :--------------------------------------------- |
-| **"Failed to load models.toml"** | Create `~/.config/dejima/models.toml`          |
-| **Missing error logs**           | Check `~/.config/dejima/dejima.log`            |
-| **HTTP 401 / Auth errors**       | Set `api_key_env` in `models.toml`             |
-| **Wrong `$EDITOR`**              | Set your system `$EDITOR` environment variable |
-| **Garbled screen**               | Run the shell's `reset` command                |
+| Issue                            | Resolution                                                                                                                                                              |
+| :------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **"Failed to load models.toml"** | Create `~/.config/dejima/models.toml`                                                                                                                                   |
+| **Missing error logs**           | Check `~/.config/dejima/dejima.log`                                                                                                                                     |
+| **HTTP 401 / Auth errors**       | Set `api_key_env` in `models.toml`                                                                                                                                      |
+| **Wrong `$EDITOR`**              | Set your system `$EDITOR` environment variable; it is run via a shell, so full command lines like `open -W -a TextEdit` work (return to Dejima by quitting the app, ⌘Q) |
+| **Garbled screen**               | Run the shell's `reset` command                                                                                                                                         |
