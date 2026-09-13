@@ -16,6 +16,14 @@ https://github.com/user-attachments/assets/062cb66c-c09c-42f0-8aea-4468ec83fd08
 | **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                          |
 | **File context**       | Attach files (`/add`) with contents re-read on every message                                    |
 | **Post-response hook** | Execute any shell command after each reply (e.g., desktop notifications)                        |
+| **No data collection** | No telemetry, no tracking, and no background work; only your actions trigger activity           |
+
+## Privacy
+
+Dejima collects no data and performs no background processing. Network traffic
+happens only when you trigger a request: chat messages go solely to the endpoints
+you configure in `models.toml`. Sessions, prompts, and logs stay on your machine
+in `~/.config/dejima/`. Nothing runs unless you operate or trigger it.
 
 ## Requirements
 
