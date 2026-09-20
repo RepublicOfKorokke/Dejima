@@ -1,6 +1,6 @@
 # Dejima (LLM Chat Client)
 
-https://github.com/user-attachments/assets/062cb66c-c09c-42f0-8aea-4468ec83fd08
+https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 
 ## Features
 
@@ -15,7 +15,11 @@ https://github.com/user-attachments/assets/062cb66c-c09c-42f0-8aea-4468ec83fd08
 | **History editing**    | Edit chat history directly in `$EDITOR`                                                         |
 | **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                          |
 | **File context**       | Attach files (`/add`) with contents re-read on every message                                    |
+| **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, in a loop until it answers    |
+| **Tool approvals**     | Per-tool `ask`/`auto`/`deny` with a diff preview; every tool asks by default                    |
+| **Danger guardrails**  | Typed-`YES` confirmation for configured `[agent.danger]` commands and paths                     |
 | **Post-response hook** | Execute any shell command after each reply (e.g., desktop notifications)                        |
+| **Approval hook**      | Execute any shell command when a tool confirmation appears (`ask_hook_command`)                 |
 | **No data collection** | No telemetry, no tracking, and no background work; only your actions trigger activity           |
 
 ## Privacy
