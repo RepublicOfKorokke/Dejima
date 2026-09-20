@@ -20,10 +20,33 @@ https://github.com/user-attachments/assets/062cb66c-c09c-42f0-8aea-4468ec83fd08
 
 ## Privacy
 
-Dejima collects no data and performs no background processing. Network traffic
-happens only when you trigger a request: chat messages go solely to the endpoints
-you configure in `models.toml`. Sessions, prompts, and logs stay on your machine
-in `~/.config/dejima/`. Nothing runs unless you operate or trigger it.
+Dejima collects no telemetry and does nothing in the background. The only
+network traffic is the requests you trigger, and they go only to the model
+service you have configured — nowhere else.
+
+### What leaves your machine
+
+Every message you send includes the context you have built up in that session:
+
+- the conversation so far — your messages and the model's replies;
+- the system prompt you selected, if any;
+- the full contents of every file you attached; attached files are re-read and
+  re-sent with each message, so later edits are included;
+- when agent mode is on, the results of the file reads and shell commands the
+  assistant runs for you, which stay in the conversation and are re-sent on
+  later turns;
+- a transcript of the conversation, only when you ask for a generated title.
+
+If your context must not leave your machine, use a model that runs locally, and
+think twice before attaching sensitive files or enabling agent mode with a
+remote service.
+
+### What stays on your machine
+
+Your sessions and error logs are saved on your computer as plain text — they are
+not encrypted. Sessions hold your full conversations, including the output of
+files read and shell commands run while agent mode was on; the error log holds
+error messages. Keep your user account protected accordingly.
 
 ## Requirements
 
@@ -89,21 +112,53 @@ protocol     = "gemini"
 default_model  = "qwen-32b"     # defaults to the first model in models.toml
 default_prompt = "rust-expert"  # optional system prompt template name
 # hook_command = "terminal-notifier -title 'Dejima' -message 'done'"  # run after every LLM response
-# hook_shell   = "zsh -l -c"    # shell invocation prefix for the hook; default "sh -c"
+# hook_shell   = "zsh -l -c"    # shell invocation prefix for both hooks; default "sh -c"
 # stream_fps   = 10             # streaming redraw cap (1-120); default 30
 # editor_command = "nvim"      # editor for Dejima's editor flows; overrides $EDITOR
+
+# Every tool defaults to "ask".
+[agent]
+# shell      = "sh -c"        # bash tool's shell prefix (whitespace-split); default "sh -c"
+# ask_hook_command = "terminal-notifier -title 'Dejima' -message 'approval needed'"  # run when a tool confirmation is shown
+# bash       = "ask"          # confirm each shell command before it runs
+# read_file  = "ask"          # confirm reads too (default)
+# write_file = "ask"          # show a diff and confirm before writing
+# edit_file  = "ask"          # show a diff and confirm before editing
+# bash       = "auto"         # example: run shell commands without asking
+# read_file  = "auto"         # example: read without asking
+
+# Dangerous patterns: even under "auto", a match requires typing YES + Enter.
+# commands match whole words/phrases in shell commands (rm, git reset, ...).
+# paths match workspace-relative path fragments (also inside shell commands,
+# so `cat .env` is caught). Use absolute fragments like "/tmp/" to catch
+# external scratch writes (bash is not sandboxed).
+[agent.danger]
+# commands = [
+#   "rm",
+#   "git reset",
+#   "git push",
+#   "git clean",
+#   "git rm",
+#   "sudo",
+#   "dd",
+#   "mkfs",
+#   "format",
+# ]
+# paths = [".env", ".git", "~", "../"]
 ```
 
-| Field            | Description                                                                                                                              |
-| :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
-| `default_model`  | Model name (must match `models.toml`). Defaults to the first model if omitted.                                                           |
-| `default_prompt` | Prompt file name in `prompts/` (without extension).                                                                                      |
-| `hook_command`   | Shell command to run after every LLM response.                                                                                           |
-| `hook_shell`     | Shell invocation prefix for the hook (default: `"sh -c"`).                                                                               |
-| `stream_fps`     | Streaming redraw cap in fps (1–120, default 30). Lower it to reduce CPU usage.                                                           |
-| `editor_command` | Editor used by `/editor`, `/edit`, `/preview`, `Ctrl+o` (ADR-0040 shell syntax). Overrides `$EDITOR`; defaults to `$EDITOR`, then `vim`. |
+| Field            | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default_model`  | Model name (must match `models.toml`). Defaults to the first model if omitted.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `default_prompt` | Prompt file name in `prompts/` (without extension).                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `hook_command`   | Shell command to run after every LLM response.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `hook_shell`     | Shell invocation prefix shared by both hooks (default: `"sh -c"`).                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `stream_fps`     | Streaming redraw cap in fps (1–120, default 30). Lower it to reduce CPU usage.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `editor_command` | Editor used by `/editor`, `/edit`, `/preview`, `Ctrl+o`. Overrides `$EDITOR`; defaults to `$EDITOR`, then `vim`.                                                                                                                                                                                                                                                                                                                                                                                               |
+| `[agent]`        | Per-tool approval (`ask`/`auto`/`deny`) for agentic mode; every tool defaults to `ask`, `deny` hides the tool from the model entirely. An invalid _tool policy_ aborts startup, and so does a `shell` value that is an approval keyword. The reserved `shell` key sets the bash tool's shell prefix (default `sh -c`); the reserved `ask_hook_command` key runs a shell command whenever a tool-confirmation prompt is shown (both `Enter`-style and typed-`YES`, never on approve/deny; shares `hook_shell`). |
+| `[agent.danger]` | `commands` / `paths` patterns that force a typed confirmation (`YES` + Enter) even when a tool is `auto`. `commands` match whole words/phrases in shell commands; `paths` match workspace-relative path fragments (and shell-command text, so `cat .env` is caught). Matching normalizes whitespace, quotes, backslashes, `$IFS`, basic escapes, and case. An unknown key here aborts startup.                                                                                                                 |
 
-> **Warning**: The shell must accept the command as its final argument (e.g., `zsh -l -c`). Using a bare `hook_shell = "sh"` will fail.
+> **Warning**: The shell must accept the command as its final argument (e.g., `zsh -l -c`). Using a bare `hook_shell = "sh"` or `shell = "sh"` will fail at runtime. Prefixes are split on whitespace; quoting is not supported.
 
 ### Custom keybindings
 
@@ -150,21 +205,43 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 
 #### Commands
 
-| Command           | What it does                                                         |
-| :---------------- | :------------------------------------------------------------------- |
-| `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview |
-| `/model`          | Choose the active model                                              |
-| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear        |
-| `/add`            | Attach file(s) to the conversation                                   |
-| `/drop`           | Remove an attached file                                              |
-| `/files`          | Show a summary of attached files                                     |
-| `/edit`           | Edit the whole chat history in `$EDITOR`                             |
-| `/preview`        | Read the chat history in `$EDITOR` (read-only)                       |
-| `/editor [text]`  | Compose the pending message in `$EDITOR`                             |
-| `/copy`           | Copy the last reply to the clipboard                                 |
-| `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)   |
-| `/generate-title` | Name the session from the conversation                               |
-| `/quit`           | Quit                                                                 |
+| Command           | What it does                                                                        |
+| :---------------- | :---------------------------------------------------------------------------------- |
+| `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
+| `/model`          | Choose the active model                                                             |
+| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
+| `/add`            | Attach file(s) to the conversation                                                  |
+| `/drop`           | Remove an attached file                                                             |
+| `/files`          | Show a summary of attached files                                                    |
+| `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
+| `/preview`        | Read the chat history in `$EDITOR` (read-only)                                      |
+| `/editor [text]`  | Compose the pending message in `$EDITOR`                                            |
+| `/copy`           | Copy the last reply to the clipboard                                                |
+| `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)                  |
+| `/generate-title` | Name the session from the conversation                                              |
+| `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off |
+| `/quit`           | Quit                                                                                |
+
+#### Agentic Mode
+
+Run `/agent` to let the model use tools in a loop until it answers in plain text
+(pi-style). Agent mode works with both OpenAI-compatible and native Gemini
+(`protocol = "gemini"`) models; the UI and the `/edit` transcript are identical
+either way. Tools: `bash`, `read_file`, `write_file`, and `edit_file`; file
+tools are confined to the workspace root, and the bash description tells the
+model to work under `pwd` only. Approval is per-tool and configured in
+`config.toml` under `[agent]` (`ask`/`auto`/`deny`; `deny` hides the tool from
+the model). Every tool defaults to `ask` — opt into `auto` per tool
+to skip prompts.
+The reserved `shell` key (default `"sh -c"`) sets the shell prefix the bash
+tool runs commands through, e.g. `shell = "zsh -l -c"` for a login shell.
+`[agent.danger]` adds `commands` and `paths` patterns; a match escalates to a
+typed confirmation even under `auto`: the preview highlights the
+matched text with a `DANGER` marker, and you must type exactly `YES` and press
+Enter (Esc denies). Word/phrase matching tolerates spacing, quotes,
+backslashes, `$IFS`, basic escapes, and case; it is a guardrail, not a
+sandbox, and bash itself is not confined.
+Run `/agent` again to turn it off.
 
 #### Keyboard Shortcuts
 
