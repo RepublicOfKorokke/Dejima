@@ -68,6 +68,15 @@ use the compiled binary from the [releases](https://github.com/RepublicOfKorokke
 ./dejima
 ```
 
+> **macOS:** the binary is not notarized, so a browser download (Safari, Chrome)
+> gets a quarantine flag and macOS may refuse to launch it. Clear the flag once:
+>
+> ```bash
+> xattr -d com.apple.quarantine ./dejima
+> ```
+>
+> Downloading with `curl` or `wget` avoids the quarantine flag entirely.
+
 ## Configuration
 
 All files live in `~/.config/dejima/`:
@@ -262,10 +271,11 @@ Run `/agent` again to turn it off.
 
 ## Troubleshooting
 
-| Issue                            | Resolution                                                                                                                                                              |
-| :------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **"Failed to load models.toml"** | Create `~/.config/dejima/models.toml`                                                                                                                                   |
-| **Missing error logs**           | Check `~/.config/dejima/dejima.log`                                                                                                                                     |
-| **HTTP 401 / Auth errors**       | Set `api_key_env` in `models.toml`                                                                                                                                      |
-| **Wrong `$EDITOR`**              | Set your system `$EDITOR` environment variable; it is run via a shell, so full command lines like `open -W -a TextEdit` work (return to Dejima by quitting the app, ⌘Q) |
-| **Garbled screen**               | Run the shell's `reset` command                                                                                                                                         |
+| Issue                                             | Resolution                                                                                                                                                              |
+| :------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **"Failed to load models.toml"**                  | Create `~/.config/dejima/models.toml`                                                                                                                                   |
+| **Missing error logs**                            | Check `~/.config/dejima/dejima.log`                                                                                                                                     |
+| **HTTP 401 / Auth errors**                        | Set `api_key_env` in `models.toml`                                                                                                                                      |
+| **Wrong `$EDITOR`**                               | Set your system `$EDITOR` environment variable; it is run via a shell, so full command lines like `open -W -a TextEdit` work (return to Dejima by quitting the app, ⌘Q) |
+| **Garbled screen**                                | Run the shell's `reset` command                                                                                                                                         |
+| **macOS: "cannot be opened" or killed on launch** | Browser downloads are quarantined; run `xattr -d com.apple.quarantine ./dejima` (or download with `curl`/`wget`)                                                        |
