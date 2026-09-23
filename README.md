@@ -14,7 +14,6 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 | **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`) |
 | **History editing**    | Edit chat history directly in `$EDITOR`                                                         |
 | **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                          |
-| **File context**       | Attach files (`/add`) with contents re-read on every message                                    |
 | **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, in a loop until it answers    |
 | **Tool approvals**     | Per-tool `ask`/`auto`/`deny` with a diff preview; every tool asks by default                    |
 | **Danger guardrails**  | Typed-`YES` confirmation for configured `[agent.danger]` commands and paths                     |
@@ -34,16 +33,13 @@ Every message you send includes the context you have built up in that session:
 
 - the conversation so far — your messages and the model's replies;
 - the system prompt you selected, if any;
-- the full contents of every file you attached; attached files are re-read and
-  re-sent with each message, so later edits are included;
 - when agent mode is on, the results of the file reads and shell commands the
   assistant runs for you, which stay in the conversation and are re-sent on
   later turns;
 - a transcript of the conversation, only when you ask for a generated title.
 
 If your context must not leave your machine, use a model that runs locally, and
-think twice before attaching sensitive files or enabling agent mode with a
-remote service.
+think twice before enabling agent mode with a remote service.
 
 ### What stays on your machine
 
@@ -194,8 +190,7 @@ quit = ["ctrl+c", "ctrl+q"]
 `text_submit`, `text_cancel`, `session_new`, `session_rename`,
 `session_delete`, `session_branch`, `session_preview`, `session_open`,
 `confirm_yes`, `confirm_no`, `prompt_select`, `prompt_delete`, `prompt_new`,
-`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`,
-`file_toggle`, `file_select_all`, `file_add`, `file_parent`, `drop_confirm`.
+`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`.
 
 Free-text typing is not remappable.
 
@@ -223,9 +218,6 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
 | `/model`          | Choose the active model                                                             |
 | `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
-| `/add`            | Attach file(s) to the conversation                                                  |
-| `/drop`           | Remove an attached file                                                             |
-| `/files`          | Show a summary of attached files                                                    |
 | `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
 | `/preview`        | Read the chat history in `$EDITOR` (read-only)                                      |
 | `/editor [text]`  | Compose the pending message in `$EDITOR`                                            |
