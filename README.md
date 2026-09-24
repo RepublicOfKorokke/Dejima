@@ -209,7 +209,7 @@ Templates are stored as Markdown files in `~/.config/dejima/prompts/`.
 
 ### Using Dejima
 
-Type a message and press `Enter`. The reply streams in live. Two `Esc` presses within one second abort the stream.
+Type a message and press `Enter`. The reply streams in live. Two `Esc` presses within one second abort the stream — the same gesture cancels a running agentic tool turn.
 
 #### Commands
 
@@ -246,20 +246,26 @@ matched text with a `DANGER` marker, and you must type exactly `YES` and press
 Enter (Esc denies). Word/phrase matching tolerates spacing, quotes,
 backslashes, `$IFS`, basic escapes, and case; it is a guardrail, not a
 sandbox, and bash itself is not confined.
+While the model streams or a tool turn is running, the input line is a
+read-only status line — an animated `Thinking... ` indicator (the input and
+Enter are locked, so a long command can never look like a freeze). It unlocks
+as soon as the turn settles. Two `Esc` presses within one second cancel the
+turn: running commands are killed, each unanswered tool call is recorded as
+`Cancelled by user.`, and Dejima returns to the input prompt.
 Run `/agent` again to turn it off.
 
 #### Keyboard Shortcuts
 
-| Keys                                       | Action                             |
-| :----------------------------------------- | :--------------------------------- |
-| `Enter`                                    | Send message / run command         |
-| `/`                                        | Start a slash command              |
-| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion   |
-| `Esc`                                      | Cancel completion                  |
-| `Esc` `Esc` (within 1 s)                   | Abort streaming                    |
-| `Ctrl+o`                                   | Compose current input in `$EDITOR` |
-| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)    |
-| `Ctrl+C`                                   | Quit                               |
+| Keys                                       | Action                               |
+| :----------------------------------------- | :----------------------------------- |
+| `Enter`                                    | Send message / run command           |
+| `/`                                        | Start a slash command                |
+| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion     |
+| `Esc`                                      | Cancel completion                    |
+| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn |
+| `Ctrl+o`                                   | Compose current input in `$EDITOR`   |
+| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)      |
+| `Ctrl+C`                                   | Quit                                 |
 
 ## Troubleshooting
 
