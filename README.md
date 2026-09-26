@@ -4,22 +4,22 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 
 ## Features
 
-| Feature                | Description                                                                                     |
-| :--------------------- | :---------------------------------------------------------------------------------------------- |
-| **Sessions**           | Create, rename, delete, switch, and branch with auto-save/auto-naming                           |
-| **Rich Markdown**      | Full rendering of code blocks, tables, lists, and quotes                                        |
-| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini wire protocols                        |
-| **Prompt templates**   | Personal library of system prompts (edited in `$EDITOR`)                                        |
-| **Streaming chat**     | Per-response telemetry (tokens/s, time-to-first-token)                                          |
-| **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`) |
-| **History editing**    | Edit chat history directly in `$EDITOR`                                                         |
-| **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                          |
-| **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, in a loop until it answers    |
-| **Tool approvals**     | Per-tool `ask`/`auto`/`deny` with a diff preview; every tool asks by default                    |
-| **Danger guardrails**  | Typed-`YES` confirmation for configured `[agent.danger]` commands and paths                     |
-| **Post-response hook** | Execute any shell command after each reply (e.g., desktop notifications)                        |
-| **Approval hook**      | Execute any shell command when a tool confirmation appears (`ask_hook_command`)                 |
-| **No data collection** | No telemetry, no tracking, and no background work; only your actions trigger activity           |
+| Feature                | Description                                                                                         |
+| :--------------------- | :-------------------------------------------------------------------------------------------------- |
+| **Sessions**           | Create, rename, delete, switch, and branch with auto-save/auto-naming                               |
+| **Rich Markdown**      | Full rendering of code blocks, tables, lists, and quotes                                            |
+| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini wire protocols                            |
+| **Prompt templates**   | Personal library of system prompts (edited in `$EDITOR`)                                            |
+| **Streaming chat**     | Per-response telemetry (tokens/s, time-to-first-token)                                              |
+| **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`)     |
+| **History editing**    | Edit chat history directly in `$EDITOR`                                                             |
+| **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                              |
+| **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, in a loop until it answers        |
+| **Tool approvals**     | Per-tool `ask`/`auto`/`deny` with a diff preview (`Tab` shows the chat); every tool asks by default |
+| **Danger guardrails**  | Typed-`YES` confirmation for configured `[agent.danger]` commands and paths                         |
+| **Post-response hook** | Execute any shell command after each reply (e.g., desktop notifications)                            |
+| **Approval hook**      | Execute any shell command when a tool confirmation appears (`ask_hook_command`)                     |
+| **No data collection** | No telemetry, no tracking, and no background work; only your actions trigger activity               |
 
 ## Privacy
 
@@ -169,6 +169,8 @@ default_prompt = "rust-expert"  # optional system prompt template name
 
 > **Warning**: The shell must accept the command as its final argument (e.g., `zsh -l -c`). Using a bare `hook_shell = "sh"` or `shell = "sh"` will fail at runtime. Prefixes are split on whitespace; quoting is not supported.
 
+> **Hook isolation**: both hooks run detached from the terminal with a null stdin. On Unix they also start a new session at reduced priority, so a heavy command is much less likely to stall the UI (it cannot fully protect a saturated single core). A run exceeding 120 seconds is killed — its whole process group on Unix, the direct process elsewhere — and reports a toast. Interactive hooks are not supported.
+
 ### Custom keybindings
 
 Add a `[keys]` section to `~/.config/dejima/config.toml`. You can map **action ids** to key specs.
@@ -189,7 +191,8 @@ quit = ["ctrl+c", "ctrl+q"]
 `completion_prev`, `list_next`, `list_prev`, `filter_toggle`, `list_close`,
 `text_submit`, `text_cancel`, `session_new`, `session_rename`,
 `session_delete`, `session_branch`, `session_preview`, `session_open`,
-`confirm_yes`, `confirm_no`, `prompt_select`, `prompt_delete`, `prompt_new`,
+`confirm_yes`, `confirm_no`, `toggle_confirm_view`, `prompt_select`,
+`prompt_delete`, `prompt_new`,
 `prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`.
 
 Free-text typing is not remappable.
@@ -238,6 +241,9 @@ model to work under `pwd` only. Approval is per-tool and configured in
 `config.toml` under `[agent]` (`ask`/`auto`/`deny`; `deny` hides the tool from
 the model). Every tool defaults to `ask` — opt into `auto` per tool
 to skip prompts.
+While a prompt is shown the change preview fills the chat pane; `Tab` toggles
+it to the conversation and back, and `Ctrl-u` / `Ctrl-d` scroll whichever is
+shown, so you can re-read the request that led to the call before approving.
 The reserved `shell` key (default `"sh -c"`) sets the shell prefix the bash
 tool runs commands through, e.g. `shell = "zsh -l -c"` for a login shell.
 `[agent.danger]` adds `commands` and `paths` patterns; a match escalates to a
@@ -256,16 +262,17 @@ Run `/agent` again to turn it off.
 
 #### Keyboard Shortcuts
 
-| Keys                                       | Action                               |
-| :----------------------------------------- | :----------------------------------- |
-| `Enter`                                    | Send message / run command           |
-| `/`                                        | Start a slash command                |
-| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion     |
-| `Esc`                                      | Cancel completion                    |
-| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn |
-| `Ctrl+o`                                   | Compose current input in `$EDITOR`   |
-| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)      |
-| `Ctrl+C`                                   | Quit                                 |
+| Keys                                       | Action                                       |
+| :----------------------------------------- | :------------------------------------------- |
+| `Enter`                                    | Send message / run command                   |
+| `/`                                        | Start a slash command                        |
+| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion             |
+| `Esc`                                      | Cancel completion                            |
+| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn         |
+| `Ctrl+o`                                   | Compose current input in `$EDITOR`           |
+| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)              |
+| `Tab` (while a tool prompt is pending)     | Switch between the diff preview and the chat |
+| `Ctrl+C`                                   | Quit                                         |
 
 ## Troubleshooting
 
