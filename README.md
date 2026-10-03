@@ -75,7 +75,7 @@ use the compiled binary from the [releases](https://github.com/RepublicOfKorokke
 
 ## Configuration
 
-All files live in `~/.config/dejima/`:
+By default, all files live in `~/.config/dejima/`:
 
 ```
 ~/.config/dejima/
@@ -85,6 +85,35 @@ All files live in `~/.config/dejima/`:
 ├── prompts/          # one Markdown file per system-prompt template
 │   └── rust-expert.md    # filename (minus .md) is the template name
 └── sessions/         # chat history (TOML), managed automatically
+```
+
+### Custom locations
+
+Every path is overridable. `--root <DIR>` moves all of them under `<DIR>`;
+individual flags override one path each:
+
+| Flag               | Default                                    |
+| :----------------- | :----------------------------------------- |
+| `--root <DIR>`     | `~/.config/dejima` (the base for the rest) |
+| `--config <FILE>`  | `<root>/config.toml`                       |
+| `--models <FILE>`  | `<root>/models.toml`                       |
+| `--prompts <DIR>`  | `<root>/prompts/`                          |
+| `--sessions <DIR>` | `<root>/sessions/`                         |
+| `--log <FILE>`     | `<root>/dejima.log`                        |
+
+An explicit flag beats `--root`; the environment variable `DEJIMA_ROOT` sets the
+root when `--root` is absent; otherwise `~/.config/dejima` is used. The root
+and the `prompts/`/`sessions/` directories are created on startup. To keep one
+project's chats local while sharing your models and prompts:
+
+```bash
+dejima --sessions ./.dejima/sessions
+```
+
+For a fully isolated project (its own config, prompts, models, and sessions):
+
+```bash
+dejima --root ./.dejima
 ```
 
 ### models.toml (required)
@@ -182,6 +211,8 @@ session_new = "N"                  # single spec replaces the default
 quit = ["ctrl+c", "ctrl+q"]
 ```
 
+`quit` clears the main input first while it holds text; with an empty input, or while a popup is open, it quits.
+
 <details>
 
 <summary> Available action ids </summary>
@@ -262,17 +293,17 @@ Run `/agent` again to turn it off.
 
 #### Keyboard Shortcuts
 
-| Keys                                       | Action                                       |
-| :----------------------------------------- | :------------------------------------------- |
-| `Enter`                                    | Send message / run command                   |
-| `/`                                        | Start a slash command                        |
-| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion             |
-| `Esc`                                      | Cancel completion                            |
-| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn         |
-| `Ctrl+o`                                   | Compose current input in `$EDITOR`           |
-| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)              |
-| `Tab` (while a tool prompt is pending)     | Switch between the diff preview and the chat |
-| `Ctrl+C`                                   | Quit                                         |
+| Keys                                       | Action                                         |
+| :----------------------------------------- | :--------------------------------------------- |
+| `Enter`                                    | Send message / run command                     |
+| `/`                                        | Start a slash command                          |
+| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion               |
+| `Esc`                                      | Cancel completion                              |
+| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn           |
+| `Ctrl+o`                                   | Compose current input in `$EDITOR`             |
+| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (10 rows)                |
+| `Tab` (while a tool prompt is pending)     | Switch between the diff preview and the chat   |
+| `Ctrl+C`                                   | Clear the input; quit when empty or popup open |
 
 ## Troubleshooting
 
