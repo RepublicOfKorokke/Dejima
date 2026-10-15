@@ -118,13 +118,15 @@ dejima --root ./.dejima
 
 ### models.toml (required)
 
-| Field           | Description                                                                 |
-| :-------------- | :-------------------------------------------------------------------------- |
-| `name`          | **Required**: Unique registry key and the model ID sent to the API.         |
-| `endpoint`      | **Required**: The URL to POST to (depends on `protocol`).                   |
-| `friendly_name` | _Optional_: Human label for the `/model` popup and chat headers.            |
-| `api_key_env`   | _Optional_: Name of the env var holding the API key (never stored on disk). |
-| `protocol`      | _Optional_: Wire protocol: `"openai"` (default) or `"gemini"`.              |
+| Field               | Description                                                                                                                                            |
+| :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`              | **Required**: Unique registry key and the model ID sent to the API.                                                                                    |
+| `endpoint`          | **Required**: The URL to POST to (depends on `protocol`).                                                                                              |
+| `friendly_name`     | _Optional_: Human label for the `/model` popup and chat headers.                                                                                       |
+| `api_key_env`       | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                            |
+| `protocol`          | _Optional_: Wire protocol: `"openai"` (default) or `"gemini"`.                                                                                         |
+| `reasoning`         | _Optional_: List of selectable reasoning values (e.g. `["none","low","high"]`); set via `/hyper-params`.                                               |
+| `reasoning_payload` | _Optional_ (`[model.reasoning_payload]` sub-table): per-value **non-empty** JSON object merged into the request body (overrides the protocol default). |
 
 **Example Configuration:**
 
@@ -135,6 +137,7 @@ endpoint     = "http://localhost:11434/v1/chat/completions"  # required (meaning
 # friendly_name = "Qwen 32B"          # optional: human label for the /model popup and chat headers
 # api_key_env  = "OPENAI_API_KEY"     # optional: env var holding the API key (key never stored on disk)
 # protocol     = "openai"             # optional: "openai" (default) or "gemini"
+# reasoning    = ["none", "low", "medium", "high"]   # optional: selectable via /hyper-params
 
 [[model]]
 name         = "gemini-3.8-flash"
@@ -142,6 +145,18 @@ endpoint     = "https://generativelanguage.googleapis.com/v1beta"
 friendly_name = "Gemini 3.8 Flash"
 api_key_env  = "GEMINI_API_KEY"       # export GEMINI_API_KEY=...
 protocol     = "gemini"
+reasoning    = ["low", "high"]        # sent as generationConfig.thinkingConfig.thinkingLevel
+
+# A local server that does not understand `reasoning_effort` (e.g. llama.cpp):
+# map each value to the JSON its server expects.
+[[model]]
+name      = "qwen3-local"
+endpoint  = "http://localhost:8080/v1/chat/completions"
+reasoning = ["off", "on"]
+
+[model.reasoning_payload]
+off = { chat_template_kwargs = { enable_thinking = false } }
+on  = { chat_template_kwargs = { enable_thinking = true } }
 ```
 
 ### config.toml (optional)
@@ -196,7 +211,7 @@ default_prompt = "rust-expert"  # optional system prompt template name
 | `stream_fps`      | Streaming redraw cap in fps (1–120, default 30). Lower it to reduce CPU usage.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `scroll_step`     | Rows scrolled per `Ctrl-u`/`Ctrl-d` press, in both the transcript and the tool-approval pane (1–500, default 10).                                                                                                                                                                                                                                                                                                                                                                                              |
 | `editor_command`  | Editor used by `/editor`, `/edit`, `Ctrl+o`. Overrides `$EDITOR`; defaults to `$EDITOR`, then `vim`.                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `preview_command` | Viewer used by `/preview` only (e.g. `glow -p`, `code -w`, `zed --wait`). Overrides the editor chain; when unset falls back to `editor_command` → `$EDITOR` → `vim`. A command that returns before you finish viewing (GUI editors without a wait flag) has its temp file removed on return, so prefer a blocking form.                                                                                                                                                                                        |
+| `preview_command` | Viewer used by `/preview` only (e.g. `glow -p`, `code -w`, `zed --wait`). Overrides the editor chain; when unset falls back to `editor_command` → `$EDITOR` → `vim`. A command that returns before you finish viewing (GUI editors without a wait flag) has its temp file removed on return, so prefer a blocking form. The preview temp file has no extension, so a renderer that keys off `.md` shows the transcript as plain text.                                                                          |
 | `[agent]`         | Per-tool approval (`ask`/`auto`/`deny`) for agentic mode; every tool defaults to `ask`, `deny` hides the tool from the model entirely. An invalid _tool policy_ aborts startup, and so does a `shell` value that is an approval keyword. The reserved `shell` key sets the bash tool's shell prefix (default `sh -c`); the reserved `ask_hook_command` key runs a shell command whenever a tool-confirmation prompt is shown (both `Enter`-style and typed-`YES`, never on approve/deny; shares `hook_shell`). |
 | `[agent.danger]`  | `commands` / `paths` patterns that force a typed confirmation (`YES` + Enter) even when a tool is `auto`. `commands` match whole words/phrases in shell commands; `paths` match workspace-relative path fragments (and shell-command text, so `cat .env` is caught). Matching normalizes whitespace, quotes, backslashes, `$IFS`, basic escapes, and case. An unknown key here aborts startup.                                                                                                                 |
 
@@ -228,7 +243,14 @@ quit = ["ctrl+c", "ctrl+q"]
 `session_delete`, `session_branch`, `session_preview`, `session_open`,
 `confirm_yes`, `confirm_no`, `toggle_confirm_view`, `prompt_select`,
 `prompt_delete`, `prompt_new`,
-`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`.
+`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`,
+`hyperparam_open`, `hyperparam_clear`.
+
+Popup-specific bindings (e.g. `hyperparam_open`, `hyperparam_clear`) are scoped
+to their popup context; keys that drive the shared list behaviour
+(`list_next`, `list_prev`, `filter_toggle`, `list_close`) still win first inside
+a popup, so overriding a popup-specific key onto one of those keys makes the
+override unreachable.
 
 Free-text typing is not remappable.
 
@@ -239,7 +261,7 @@ Key specs are lowercase key names joined with `+`: modifiers `ctrl`, `alt`,
 `enter`, `esc`, `tab`, `shift+tab`, `backspace`, `delete`, `space`, `up` /
 `down` / `left` / `right`, `home`, `end`, `pageup`, `pagedown`, `f1`…`f12`.
 Unknown action ids, unknown key names, duplicate specs, and two actions
-sharing a key in the same popup fail at startup with a precise message.
+sharing a key in the same key context fail at startup with a precise message.
 
 ### System prompts
 
@@ -255,6 +277,7 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | :---------------- | :---------------------------------------------------------------------------------- |
 | `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
 | `/model`          | Choose the active model                                                             |
+| `/hyper-params`   | Set generation hyperparameters (reasoning); two-level value popup, `c` clears       |
 | `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
 | `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
 | `/preview`        | Read the chat history in `preview_command` (read-only; falls back to the editor)    |
