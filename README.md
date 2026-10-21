@@ -250,7 +250,7 @@ default.
 `confirm_yes`, `confirm_no`, `toggle_confirm_view`, `prompt_select`,
 `prompt_delete`, `prompt_new`,
 `prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`,
-`hyperparam_open`, `hyperparam_clear`.
+`hyperparam_open`, `hyperparam_clear`, `timeline_jump`.
 
 Popup-specific bindings (e.g. `hyperparam_open`, `hyperparam_clear`) are scoped
 to their popup context; keys that drive the shared list behaviour
@@ -282,6 +282,7 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | Command           | What it does                                                                        |
 | :---------------- | :---------------------------------------------------------------------------------- |
 | `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
+| `/timeline`       | Jump to a User or Assistant message in the current session                          |
 | `/model`          | Choose the active model                                                             |
 | `/hyper-params`   | Set generation hyperparameters (reasoning); two-level value popup, `c` clears       |
 | `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
@@ -293,6 +294,11 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/generate-title` | Name the session from the conversation                                              |
 | `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off |
 | `/quit`           | Quit                                                                                |
+
+`/timeline` lists User and Assistant messages only. Rows show a fixed 1-based
+index and use the chat sender colours; `Enter` jumps to the selected message,
+`Esc` closes, `Ctrl-f` filters, and `Tab` / `Shift-Tab` (or `Ctrl-n` / `Ctrl-p`)
+navigate.
 
 #### Agentic Mode
 
