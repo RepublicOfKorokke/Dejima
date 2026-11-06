@@ -126,8 +126,7 @@ dejima --root ./.dejima
 | `friendly_name`     | _Optional_: Human label for the `/model` popup and chat headers.                                                                                       |
 | `api_key_env`       | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                            |
 | `protocol`          | _Optional_: Wire protocol: `"openai"` (default) or `"gemini"`.                                                                                         |
-| `reasoning`         | _Optional_: List of selectable reasoning values (e.g. `["none","low","high"]`); set via `/hyper-params`.                                               |
-| `reasoning_payload` | _Optional_ (`[model.reasoning_payload]` sub-table): per-value **non-empty** JSON object merged into the request body (overrides the protocol default). |
+| `hyperparams`       | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, and a `payload` map (value → any JSON value). Set via `/hyper-params`. |
 
 **Example Configuration:**
 
@@ -138,7 +137,16 @@ endpoint     = "http://localhost:11434/v1/chat/completions"  # required (meaning
 friendly_name = "Qwen 32B"          # optional: human label for the /model popup and chat headers
 api_key_env  = "OPENAI_API_KEY"     # optional: env var holding the API key (key never stored on disk)
 protocol     = "openai"             # optional: "openai" (default) or "gemini"
-reasoning    = ["none", "low", "medium", "high"]   # optional: selectable via /hyper-params
+
+# Each hyperparameter table is one parameter. `values` are the selectable
+# choices; `path` optionally places the value inside the request body (omitted
+# here, so the table key is the root body key).
+[model.hyperparams.reasoning_effort]
+label = "Reasoning"                 # optional UI label; defaults to the key
+values = ["none", "low", "medium", "high"]
+
+[model.hyperparams.temperature]
+values = [0.2, 0.7]
 
 [[model]]
 name         = "gemini-3.8-flash"
@@ -146,19 +154,111 @@ endpoint     = "https://generativelanguage.googleapis.com/v1beta"
 friendly_name = "Gemini 3.8 Flash"
 api_key_env  = "GEMINI_API_KEY"       # export GEMINI_API_KEY=...
 protocol     = "gemini"
-reasoning    = ["low", "high"]        # sent as generationConfig.thinkingConfig.thinkingLevel
 
-# A local server that does not understand `reasoning_effort` (e.g. llama.cpp):
-# map each value to the JSON its server expects.
+# Gemini nests settings under generationConfig; a payload supplies the value
+# assigned at that root key for each choice.
+[model.hyperparams.generationConfig]
+label = "Reasoning"
+values = ["low", "high"]
+
+[model.hyperparams.generationConfig.payload]
+low  = { thinkingConfig = { thinkingLevel = "low" } }
+high = { thinkingConfig = { thinkingLevel = "high" } }
+
+# A local server with arbitrary template arguments (e.g. llama.cpp).
+# `path` puts independent selections inside one shared body object; omit it
+# to use the table key as a root body key.
 [[model]]
 name      = "qwen3-local"
 endpoint  = "http://localhost:8080/v1/chat/completions"
-reasoning = ["off", "on"]
 
-[model.reasoning_payload]
-off = { chat_template_kwargs = { enable_thinking = false } }
-on  = { chat_template_kwargs = { enable_thinking = true } }
+[model.hyperparams.enable_thinking]
+label = "Thinking"
+path = ["chat_template_kwargs", "enable_thinking"]
+values = [false, true]
+
+[model.hyperparams.target_lang]
+label = "Target language"
+path = ["chat_template_kwargs", "target_lang"]
+values = ["ja", "en"]
+
+[model.hyperparams.glossary]
+label = "Glossary"
+path = ["chat_template_kwargs", "glossary"]
+values = ["none", "project"]
+
+[model.hyperparams.glossary.payload]
+none = []
+project = [
+  { source = "管理画面", target = "dashboard" },
+  { source = "プロジェクト", target = "project" },
+]
 ```
+
+> **Breaking change (v4):** the old `reasoning` and `[model.reasoning_payload]`
+> fields are removed. Declare reasoning as `[model.hyperparams.reasoning_effort]`
+> (OpenAI-compatible) or as a `[model.hyperparams.generationConfig]` payload
+> (Gemini). Old configs fail at startup with a migration pointer. Old sessions
+> load, but their stored reasoning selection is not migrated.
+>
+> Without `path`, the table key is a **literal request-body root key**. `path`
+> is an array of literal JSON keys for nested settings; dots inside a segment
+> are not separators. TOML table keys containing dots must be quoted (for
+> example `[model.hyperparams."my.param"]`). `payload` keys must match the
+> chosen value's canonical text (for example `1.0` becomes `"1"`), so quote
+> numeric or date keys.
+
+### How hyperparameters appear in the request
+
+There is no `hyperparams` wrapper in the JSON sent to the server. Each selected
+parameter is added at its declared `path` (the table key when `path` is
+omitted), using the literal segments as keys.
+
+For example, with the local-server model above, selecting `enable_thinking =
+true`, `target_lang = "en"`, and `glossary = "project"` sends:
+
+```json
+{
+  "model": "qwen3-local",
+  "messages": [
+    { "role": "user", "content": "こんにちは" }
+  ],
+  "stream": true,
+  "stream_options": { "include_usage": true },
+  "chat_template_kwargs": {
+    "enable_thinking": true,
+    "target_lang": "en",
+    "glossary": [
+      { "source": "管理画面", "target": "dashboard" },
+      { "source": "プロジェクト", "target": "project" }
+    ]
+  }
+}
+```
+
+- `path = ["chat_template_kwargs", "enable_thinking"]` creates the nested
+  object; multiple parameters with the same parent merge into one object.
+- Root-level parameters (no `path`) are added directly at the root, such as
+  `"temperature": 0.7` on a model that declares it.
+- A choice without `payload` is sent as its typed scalar (`true`, `"en"`).
+- A choice with `payload` sends the payload value; `glossary = "project"`
+  sends the array above.
+- If nothing is selected, the key is omitted entirely — the body is unchanged.
+- For Gemini, use a path such as
+  `["generationConfig", "thinkingConfig", "thinkingLevel"]`, or target
+  `["generationConfig"]` with a payload object. The selected value is assigned
+  at that path (other fields omitted):
+
+```json
+{
+  "generationConfig": {
+    "thinkingConfig": { "thinkingLevel": "high" }
+  }
+}
+```
+
+Only the selected keys are added; Dejima does not send the `models.toml` table
+structure itself.
 
 ### config.toml (optional)
 
@@ -284,7 +384,7 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
 | `/timeline`       | Jump to a User or Assistant message in the current session                          |
 | `/model`          | Choose the active model                                                             |
-| `/hyper-params`   | Set generation hyperparameters (reasoning); two-level value popup, `c` clears       |
+| `/hyper-params`   | Set arbitrary generation hyperparameters; two-level value popup, `c` clears       |
 | `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
 | `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
 | `/preview`        | Read the chat history in `preview_command` (read-only; falls back to the editor)    |
