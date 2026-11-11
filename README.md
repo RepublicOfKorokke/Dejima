@@ -74,6 +74,10 @@ it in a terminal with an interactive TTY:
 >
 > Downloading with `curl` or `wget` avoids the quarantine flag entirely.
 
+`dejima --help` prints the usage, every flag with its default, and the
+`DEJIMA_ROOT` environment variable; `dejima --version` prints the version. Both
+exit before any configuration is read, so they work on a fresh install.
+
 ## Configuration
 
 By default, all files live in `~/.config/dejima/`:
