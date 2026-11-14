@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 | :--------------------- | :-------------------------------------------------------------------------------------------------- |
 | **Sessions**           | Create, rename, delete, switch, and branch with auto-save/auto-naming                               |
 | **Rich Markdown**      | Full rendering of code blocks, tables, lists, and quotes                                            |
-| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini wire protocols                            |
+| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini/OpenCode Go wire protocols                 |
 | **Prompt templates**   | Personal library of system prompts (edited in `$EDITOR`)                                            |
 | **Streaming chat**     | Per-response telemetry (tokens/s, time-to-first-token)                                              |
 | **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`)     |
@@ -129,7 +129,7 @@ dejima --root ./.dejima
 | `endpoint`          | **Required**: The URL to POST to (depends on `protocol`).                                                                                              |
 | `friendly_name`     | _Optional_: Human label for the `/model` popup and chat headers.                                                                                       |
 | `api_key_env`       | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                            |
-| `protocol`          | _Optional_: Wire protocol: `"openai"` (default) or `"gemini"`.                                                                                         |
+| `protocol`          | _Optional_: Wire protocol: `"openai"` (default), `"gemini"`, or `"opencode-go"`.                                                                       |
 | `hyperparams`       | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, and a `payload` map (value → any JSON value). Set via `/hyper-params`. |
 
 **Example Configuration:**
@@ -140,7 +140,7 @@ name         = "qwen-32b"             # required: unique registry key AND the mo
 endpoint     = "http://localhost:11434/v1/chat/completions"  # required (meaning depends on protocol)
 friendly_name = "Qwen 32B"          # optional: human label for the /model popup and chat headers
 api_key_env  = "OPENAI_API_KEY"     # optional: env var holding the API key (key never stored on disk)
-protocol     = "openai"             # optional: "openai" (default) or "gemini"
+protocol     = "openai"             # optional: "openai" (default), "gemini", or "opencode-go"
 
 # Each hyperparameter table is one parameter. `values` are the selectable
 # choices; `path` optionally places the value inside the request body (omitted
@@ -168,6 +168,15 @@ values = ["low", "high"]
 [model.hyperparams.generationConfig.payload]
 low  = { thinkingConfig = { thinkingLevel = "low" } }
 high = { thinkingConfig = { thinkingLevel = "high" } }
+
+# OpenCode Go (OpenAI-compatible Chat Completions). Dejima supplies the
+# required stable per-conversation session header automatically.
+[[model]]
+name          = "deepseek-v4.1-flash"
+endpoint      = "https://opencode.ai/inference/go/openai/v1/chat/completions"
+friendly_name = "DeepSeek V4.1 Flash"
+api_key_env   = "OPENCODE_GO_API_KEY"
+protocol      = "opencode-go"
 
 # A local server with arbitrary template arguments (e.g. llama.cpp).
 # `path` puts independent selections inside one shared body object; omit it
@@ -296,10 +305,13 @@ edit_file  = "ask"          # show a diff and confirm before editing
 # read_file = "auto"
 
 # Dangerous patterns: even under "auto", a match requires typing YES + Enter.
-# commands match whole words/phrases in shell commands (rm, git reset, ...).
-# paths match workspace-relative path fragments (also inside shell commands,
-# so `cat .env` is caught). Use absolute fragments like "/tmp/" to catch
-# external scratch writes (bash is not sandboxed).
+# commands match whole words/phrases anywhere in the shell command text
+#   (quotes/backslashes ignored, case-insensitive): `rm` matches `rm -rf` and
+#   `os.system('rm ...')`, but not `rmtree`.
+# paths are plain substrings (no word boundaries) matched against
+#   workspace-relative file paths and shell command text: `cat .env` is
+#   caught, but `.env` also matches `.envrc`. Use absolute fragments like
+#   "/tmp/" to catch external scratch writes (bash is not sandboxed).
 [agent.danger]
 commands = [
   "rm",
@@ -433,7 +445,11 @@ Useful `[agent]` keys:
 
 `[agent.danger]` lists `commands` and `paths` that escalate to a typed
 confirmation even under `auto`: the preview highlights the match, and you must
-type `YES` and press `Enter` (`Esc` denies). This is a guardrail, not a
+type `YES` and press `Enter` (`Esc` denies). The two kinds match differently:
+`commands` match whole words/phrases anywhere in the shell command text
+(including inside quoted code, so `python -c "os.system('rm ...')"` is caught),
+while `paths` are plain substrings without word boundaries, applied to
+workspace-relative file paths and shell text. This is a guardrail, not a
 sandbox; bash itself is not confined.
 
 While Dejima is busy, the input line shows `Thinking...` and rejects input. Two
@@ -463,6 +479,7 @@ Run `/agent` again to turn it off.
 | **"Failed to load models.toml"**                  | Create `~/.config/dejima/models.toml`                                                                                                                                   |
 | **Missing error logs**                            | Check `~/.config/dejima/dejima.log`                                                                                                                                     |
 | **HTTP 401 / Auth errors**                        | Set `api_key_env` in `models.toml`                                                                                                                                      |
+| **HTTP 400 `MissingSessionID` (OpenCode Go)**     | Set `protocol = "opencode-go"` on the model in `models.toml`                                                                                                            |
 | **Wrong `$EDITOR`**                               | Set your system `$EDITOR` environment variable; it is run via a shell, so full command lines like `open -W -a TextEdit` work (return to Dejima by quitting the app, ⌘Q) |
 | **Garbled screen**                                | Run the shell's `reset` command                                                                                                                                         |
 | **macOS: "cannot be opened" or killed on launch** | Browser downloads are quarantined; run `xattr -d com.apple.quarantine ./dejima` (or download with `curl`/`wget`)                                                        |
