@@ -130,7 +130,7 @@ dejima --root ./.dejima
 | `friendly_name`     | _Optional_: Human label for the `/model` popup and chat headers.                                                                                       |
 | `api_key_env`       | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                            |
 | `protocol`          | _Optional_: Wire protocol: `"openai"` (default), `"gemini"`, or `"opencode-go"`.                                                                       |
-| `hyperparams`       | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, and a `payload` map (value → any JSON value). Set via `/hyper-params`. |
+| `hyperparams`       | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, a `payload` map (value → any JSON value), and a `default` scalar. The default is sent when the session has no explicit selection; it is matched to a declared value by canonical text and is never persisted. Set via `/hyper-params`. |
 
 **Example Configuration:**
 
@@ -143,14 +143,17 @@ api_key_env  = "OPENAI_API_KEY"     # optional: env var holding the API key (key
 protocol     = "openai"             # optional: "openai" (default), "gemini", or "opencode-go"
 
 # Each hyperparameter table is one parameter. `values` are the selectable
-# choices; `path` optionally places the value inside the request body (omitted
-# here, so the table key is the root body key).
+# choices; `default` is sent when the session has no explicit selection;
+# `path` optionally places the value inside the request body (omitted here, so
+# the table key is the root body key).
 [model.hyperparams.reasoning_effort]
 label = "Reasoning"                 # optional UI label; defaults to the key
 values = ["none", "low", "medium", "high"]
+default = "medium"
 
 [model.hyperparams.temperature]
 values = [0.2, 0.7]
+default = 0.7
 
 [[model]]
 name         = "gemini-3.8-flash"
@@ -223,9 +226,19 @@ project = [
 
 ### How hyperparameters appear in the request
 
-There is no `hyperparams` wrapper in the JSON sent to the server. Each selected
+There is no `hyperparams` wrapper in the JSON sent to the server. Each
 parameter is added at its declared `path` (the table key when `path` is
-omitted), using the literal segments as keys.
+omitted), using the literal segments as keys. The value is the session's
+explicit `/hyper-params` selection when one exists, otherwise the declared
+`default`; a parameter with neither is omitted, so a model with no defaults and
+no selections sends an unchanged body. `default` matches a declared value by
+canonical text exactly like a `payload` key, so `default = "0.7"` also matches
+`values = [0.7]`, and numeric/date defaults may be written bare.
+
+Clearing an explicit selection returns to the declared default; it does not
+omit the key. To keep a key out of the body, remove its `default` from
+`models.toml` (or declare a value the provider treats as off). Defaults live
+only in `models.toml`, so existing sessions pick them up without migration.
 
 For example, with the local-server model above, selecting `enable_thinking =
 true`, `target_lang = "en"`, and `glossary = "project"` sends:
@@ -400,7 +413,7 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
 | `/timeline`       | Jump to a User or Assistant message in the current session                          |
 | `/model`          | Choose the active model                                                             |
-| `/hyper-params`   | Set arbitrary generation hyperparameters; two-level value popup, `c` clears       |
+| `/hyper-params`   | Set arbitrary generation hyperparameters; two-level value popup, `c` clears (or resets to the model default) |
 | `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
 | `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
 | `/preview`        | Read the chat history in `preview_command` (read-only; falls back to the editor)    |
