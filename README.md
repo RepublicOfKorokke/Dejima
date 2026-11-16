@@ -95,7 +95,10 @@ By default, all files live in `~/.config/dejima/`:
 ### Custom locations
 
 Every path is overridable. `--root <DIR>` moves all of them under `<DIR>`;
-individual flags override one path each:
+individual flags override one path each.
+
+<details>
+<summary><strong>Path flags and examples</strong></summary>
 
 | Flag               | Default                                    |
 | :----------------- | :----------------------------------------- |
@@ -121,6 +124,8 @@ For a fully isolated project (its own config, prompts, models, and sessions):
 dejima --root ./.dejima
 ```
 
+</details>
+
 ### models.toml (required)
 
 | Field                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -134,29 +139,19 @@ dejima --root ./.dejima
 | `protocol`                  | _Optional_: Wire protocol: `"openai"` (default), `"gemini"`, or `"opencode-go"`.                                                                                                                                                                                                                                                                                                                                                                        |
 | `hyperparams`               | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, a `payload` map (value → any JSON value), and a `default` scalar. The default is sent when the session has no explicit selection; it is matched to a declared value by canonical text and is never persisted. Set via `/hyper-params`. |
 
-### Reasoning replay modes
+A minimal configuration:
 
-`reasoning_replay` controls what Dejima does with reasoning the model returned in earlier turns. The current turn's reasoning is never replayed to itself; it is stored and used on the next request. "Has reasoning" means the stored message already contains non-empty reasoning from the server's earlier response.
+```toml
+[[model]]
+name     = "qwen-32b"
+endpoint = "http://localhost:11434/v1/chat/completions"
 
-| Mode        | When it applies                                         | Messages with reasoning                 | Messages without reasoning  |
-| ----------- | ------------------------------------------------------- | --------------------------------------- | --------------------------- |
-| `"off"`     | Always                                                  | Nothing                                 | Nothing                     |
-| `"present"` | Always (agent on or off)                                | Replay the reasoning                    | Nothing                     |
-| `"strict"`  | Only while agent mode is on (the request carries tools) | Replay the reasoning                    | Fallback (empty by default) |
-| `"content"` | Always (agent on or off)                                | Put the reasoning into the message text | Nothing                     |
+# For a hosted endpoint, also set the environment variable that holds the key:
+# api_key_env = "OPENAI_API_KEY"
+```
 
-- `"present"` replays only what the model actually reasoned about. It also works in plain chat.
-- `"strict"` is for providers that require the reasoning field on every previous assistant message once tools are present. Without agent mode it does nothing. `reasoning_replay_fallback` is a placeholder that satisfies that requirement; it is not new reasoning. Use `" "` if your provider rejects an empty value.
-- `"content"` is for servers that do not accept a separate reasoning field. It puts the reasoning into the message text and does not satisfy providers that require the separate field (such as DeepSeek).
-
-Provider guidance:
-
-| Model family            | Recommended `reasoning_replay`                                                  |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| DeepSeek (agent mode)   | `"strict"` — `"present"` can fail; `"content"` does not satisfy the requirement |
-| GLM                     | `"present"`; use `"strict"` if turns without reasoning fail                     |
-| Native Gemini           | `"off"` or `"content"`; `"present"`/`"strict"` have no effect                   |
-| Other OpenAI-compatible | `"off"` unless the server supports reasoning replay                             |
+<details>
+<summary><strong>Full multi-provider example and field notes</strong></summary>
 
 **Example Configuration:**
 
@@ -250,6 +245,39 @@ project = [
 > chosen value's canonical text (for example `1.0` becomes `"1"`), so quote
 > numeric or date keys.
 
+</details>
+
+### Reasoning replay modes
+
+`reasoning_replay` controls what Dejima does with reasoning the model returned in earlier turns. The current turn's reasoning is never replayed to itself; it is stored and used on the next request. "Has reasoning" means the stored message already contains non-empty reasoning from the server's earlier response.
+
+See the [full `models.toml` example](#modelstoml-required) for sample model entries.
+
+<details>
+<summary><strong>Mode reference and provider guidance</strong></summary>
+
+| Mode        | When it applies                                         | Messages with reasoning                 | Messages without reasoning  |
+| ----------- | ------------------------------------------------------- | --------------------------------------- | --------------------------- |
+| `"off"`     | Always                                                  | Nothing                                 | Nothing                     |
+| `"present"` | Always (agent on or off)                                | Replay the reasoning                    | Nothing                     |
+| `"strict"`  | Only while agent mode is on (the request carries tools) | Replay the reasoning                    | Fallback (empty by default) |
+| `"content"` | Always (agent on or off)                                | Put the reasoning into the message text | Nothing                     |
+
+- `"present"` replays only what the model actually reasoned about. It also works in plain chat.
+- `"strict"` is for providers that require the reasoning field on every previous assistant message once tools are present. Without agent mode it does nothing. `reasoning_replay_fallback` is a placeholder that satisfies that requirement; it is not new reasoning. Use `" "` if your provider rejects an empty value.
+- `"content"` is for servers that do not accept a separate reasoning field. It puts the reasoning into the message text and does not satisfy providers that require the separate field (such as DeepSeek).
+
+Provider guidance:
+
+| Model family            | Recommended `reasoning_replay`                                                  |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| DeepSeek (agent mode)   | `"strict"` — `"present"` can fail; `"content"` does not satisfy the requirement |
+| GLM                     | `"present"`; use `"strict"` if turns without reasoning fail                     |
+| Native Gemini           | `"off"` or `"content"`; `"present"`/`"strict"` have no effect                   |
+| Other OpenAI-compatible | `"off"` unless the server supports reasoning replay                             |
+
+</details>
+
 ### How hyperparameters appear in the request
 
 There is no `hyperparams` wrapper in the JSON sent to the server. Each
@@ -265,6 +293,9 @@ Clearing an explicit selection returns to the declared default; it does not
 omit the key. To keep a key out of the body, remove its `default` from
 `models.toml` (or declare a value the provider treats as off). Defaults live
 only in `models.toml`, so existing sessions pick them up without migration.
+
+<details>
+<summary><strong>Examples and path/payload details</strong></summary>
 
 For example, with the local-server model above, selecting `enable_thinking =
 true`, `target_lang = "en"`, and `glossary = "project"` sends:
@@ -310,7 +341,14 @@ true`, `target_lang = "en"`, and `glossary = "project"` sends:
 Only the selected keys are added; Dejima does not send the `models.toml` table
 structure itself.
 
+</details>
+
 ### config.toml (optional)
+
+All keys are optional; the sample comments show the defaults.
+
+<details>
+<summary><strong>config.toml reference and sample</strong></summary>
 
 ```toml
 default_model  = "qwen-32b"     # defaults to the first model in models.toml
@@ -385,35 +423,22 @@ paths = [".env", ".git", "~", "../"]
 
 > **Hook isolation**: the post-response and approval hooks run in the background with no terminal input. On Unix they start in their own session at lower priority, so a heavy hook is much less likely to stall the UI (it cannot help if the CPU is already saturated). Each run is limited to a fixed **120 seconds**, independent of `[agent] bash_timeout`; after that the process (its whole group on Unix) is killed and a toast is shown. Interactive hooks are not supported.
 
+</details>
+
 ### Custom keybindings
 
-Add a `[keys]` section to `config.toml` (see the sample above). Each action id
-maps to one key spec or an array of specs; a binding replaces that action's
-default.
+Add a `[keys]` section to `config.toml` (see the `config.toml` reference
+above). Each action id maps to one key spec or an array of specs; a binding
+replaces that action's default.
 
-<details>
-
-<summary> Available action ids </summary>
-
-`quit`, `open_editor`, `submit_message`, `cancel`,
-`delete_char`, `scroll_up`, `scroll_down`, `completion_next`,
-`completion_prev`, `list_next`, `list_prev`, `filter_toggle`, `list_close`,
-`text_submit`, `text_cancel`, `session_new`, `session_rename`,
-`session_delete`, `session_branch`, `session_preview`, `session_open`,
-`confirm_yes`, `confirm_no`, `toggle_confirm_view`, `prompt_select`,
-`prompt_delete`, `prompt_new`,
-`prompt_edit`, `prompt_rename`, `prompt_clear`, `model_select`,
-`hyperparam_open`, `hyperparam_clear`, `timeline_jump`.
-
-Popup-specific bindings (e.g. `hyperparam_open`, `hyperparam_clear`) are scoped
-to their popup context; keys that drive the shared list behaviour
-(`list_next`, `list_prev`, `filter_toggle`, `list_close`) still win first inside
-a popup, so overriding a popup-specific key onto one of those keys makes the
-override unreachable.
+Every action id and its default keys are listed in the reference tables under
+[Keyboard Shortcuts](#keyboard-shortcuts). Popup-specific bindings (e.g.
+`hyperparam_open`, `hyperparam_clear`) are scoped to their popup context; keys
+that drive the shared list behaviour (`list_next`, `list_prev`,
+`filter_toggle`, `list_close`) still win first inside a popup, so overriding a
+popup-specific key onto one of those keys makes the override unreachable.
 
 Free-text typing is not remappable.
-
-</details>
 
 Key specs are lowercase key names joined with `+`: modifiers `ctrl`, `alt`,
 `shift` (optional, informational), then the key — letters/digits (`n`, `N`),
@@ -448,6 +473,11 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off                          |
 | `/quit`           | Quit                                                                                                         |
 
+Press `Ctrl-k` while composing to choose any command from a popup: type to
+filter, `Enter` to run, and `Esc` to close. The text you were typing is kept
+when a command opens a popup; `/editor` opens that text in `$EDITOR`, and
+cancelling the editor restores it.
+
 `/timeline` lists User and Assistant messages only. Rows show a fixed 1-based
 index and use the chat sender colours; `Enter` jumps to the selected message,
 `Esc` closes, `Ctrl-f` filters, and `Tab` / `Shift-Tab` (or `Ctrl-n` / `Ctrl-p`)
@@ -459,6 +489,9 @@ Run `/agent` to let the model call tools in a loop until it replies in plain
 text. It works with both OpenAI-compatible and native Gemini models. The tools
 are `bash`, `read_file`, `write_file`, and `edit_file`; file tools are confined
 to the workspace root.
+
+<details>
+<summary><strong>Approval policies, limits, and danger patterns</strong></summary>
 
 Approval is per tool in `config.toml` under `[agent]`:
 
@@ -489,6 +522,8 @@ while `paths` are plain substrings without word boundaries, applied to
 workspace-relative file paths and shell text. This is a guardrail, not a
 sandbox; bash itself is not confined.
 
+</details>
+
 While Dejima is busy, the input line shows `Thinking...` and rejects input. Two
 `Esc` presses within one second cancel: running commands are killed, and each
 unanswered tool call is recorded as `Cancelled by user.`
@@ -497,19 +532,122 @@ Run `/agent` again to turn it off.
 
 #### Keyboard Shortcuts
 
-| Keys                                       | Action                                         |
-| :----------------------------------------- | :--------------------------------------------- |
-| `Enter`                                    | Send message / run command                     |
-| `/`                                        | Start a slash command                          |
-| `Tab` / `Shift-Tab` or `Ctrl-n` / `Ctrl-p` | Cycle through command completion               |
-| `Esc`                                      | Cancel completion                              |
-| `Esc` `Esc` (within 1 s)                   | Abort streaming / cancel a tool turn           |
-| `Ctrl-o`                                   | Compose current input in `$EDITOR`             |
-| `Ctrl-u` / `Ctrl-d`                        | Scroll chat up / down (default 10 rows)        |
-| `Tab` (while a tool prompt is pending)     | Switch between the diff preview and the chat   |
-| `Ctrl-c`                                   | Clear the input; quit when empty or popup open |
+Every row is a default binding; remap any action id in `[keys]` (see
+[Custom keybindings](#custom-keybindings)). Bindings resolve per context, so
+the same key can mean different things on the main screen and inside a popup.
+Type `/` at the start of the input to start a slash command, or press `Ctrl-k`
+anywhere to pick one from the palette. Free-text typing is not remappable.
+
+<details>
+<summary><strong>Full keybinding reference (all 36 actions, by context)</strong></summary>
+
+##### Main input
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `submit_message` | `Enter` | Send the message, or run the slash command. |
+| `open_command_palette` | `Ctrl-k` | Open the command palette over the draft. Does nothing while busy or while a popup is open; `Esc` closes the palette. |
+| `cancel` | `Esc` | Close the inline `/` completion. While busy, the first press arms the double-`Esc` cancel window. |
+| `open_editor` | `Ctrl-o` | Compose the current input in `$EDITOR`; the saved text replaces the input. |
+| `quit` | `Ctrl-c` | Clear the input (and its completion); quit when the input is empty or a popup is open. |
+| `delete_char` | `Backspace` | Delete the last input character. Busy is read-only. |
+| `scroll_up` | `Ctrl-u` | Scroll the transcript up by `scroll_step` rows (default 10). |
+| `scroll_down` | `Ctrl-d` | Scroll the transcript down by `scroll_step` rows. |
+| `completion_next` | `Tab`, `Ctrl-n` | Cycle the inline `/` completion forward (wraps). |
+| `completion_prev` | `Shift-Tab`, `Ctrl-p` | Cycle the inline `/` completion backward (wraps). |
+
+##### Shared list popups
+
+These bindings work in `/session`, `/model`, `/prompt`, `/hyper-params`,
+`/timeline`, and the command palette.
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `list_next` | `Tab`, `Ctrl-n` | Move the selection down (wraps). |
+| `list_prev` | `Shift-Tab`, `Ctrl-p` | Move the selection up (wraps). |
+| `filter_toggle` | `Ctrl-f` | Start filtering and clear the query. The command palette is always filtering, so there it only clears the query. |
+| `list_close` | `Esc` | End filtering if active, otherwise close the popup. The command palette has no separate filtering stage, so `Esc` closes it on the first press. |
+
+Typed characters narrow the list once filtering is active (always active in the
+command palette).
+
+##### Command palette
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `command_run` | `Enter` | Run the selected command. The draft is kept; `/editor` opens it in `$EDITOR`, and `/quit` skips the restore. An empty filter does nothing. |
+
+##### Session popup (`/session`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `session_open` | `Enter` | Switch to the selected session. |
+| `session_new` | `n` | Create a session (name entry). |
+| `session_rename` | `r` | Rename the selected session. |
+| `session_delete` | `d` | Delete the selected session (confirmation). |
+| `session_branch` | `b` | Branch the selected session into a new one. |
+| `session_preview` | `p` | Toggle the selected session's transcript behind the popup. |
+
+##### Prompt popup (`/prompt`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `prompt_select` | `Enter` | Apply the selected template to the session. |
+| `prompt_new` | `n` | Create a template in `$EDITOR`. |
+| `prompt_edit` | `e` | Edit the selected template in `$EDITOR`. |
+| `prompt_rename` | `r` | Rename the selected template. |
+| `prompt_delete` | `d` | Delete the selected template (confirmation). |
+| `prompt_clear` | `c` | Clear the session's prompt. |
+
+##### Model popup (`/model`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `model_select` | `Enter` | Make the selected model active. |
+
+##### Hyper-parameters popup (`/hyper-params`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `hyperparam_open` | `Enter` | Open the selected parameter's value list; in the value list, apply the selected value. |
+| `hyperparam_clear` | `c` | Clear the session's value and fall back to the model default (value list only). |
+
+`Esc` in the value list returns to the parameter list; at the parameter list it
+closes the popup.
+
+##### Timeline popup (`/timeline`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `timeline_jump` | `Enter` | Jump the transcript to the selected message. |
+
+##### Confirmation dialogs
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `confirm_yes` | `y` | Confirm the destructive action, or approve the parked tool call. |
+| `confirm_no` | `n`, `Esc` | Cancel the action, or deny the tool call. |
+| `toggle_confirm_view` | `Tab` | Switch the pending tool approval between the diff preview and the transcript. |
+
+The tool-approval dialog also accepts `Enter` (approve) and `Esc` (deny)
+literally, even if those actions are remapped; `Ctrl-u` / `Ctrl-d` scroll the
+pane being shown. Dangerous calls require typing `YES`.
+
+##### Text entry (session and prompt names)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `text_submit` | `Enter` | Confirm the typed name. |
+| `text_cancel` | `Esc` | Cancel the entry without saving. |
+
+Typed characters edit the field; `Backspace` deletes.
+
+</details>
 
 ## Troubleshooting
+
+<details>
+<summary><strong>Common issues and fixes</strong></summary>
 
 | Issue                                             | Resolution                                                                                                                                                              |
 | :------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -520,3 +658,5 @@ Run `/agent` again to turn it off.
 | **Wrong `$EDITOR`**                               | Set your system `$EDITOR` environment variable; it is run via a shell, so full command lines like `open -W -a TextEdit` work (return to Dejima by quitting the app, ⌘Q) |
 | **Garbled screen**                                | Run the shell's `reset` command                                                                                                                                         |
 | **macOS: "cannot be opened" or killed on launch** | Browser downloads are quarantined; run `xattr -d com.apple.quarantine ./dejima` (or download with `curl`/`wget`)                                                        |
+
+</details>
