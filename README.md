@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 | :--------------------- | :-------------------------------------------------------------------------------------------------- |
 | **Sessions**           | Create, rename, delete, switch, and branch with auto-save/auto-naming                               |
 | **Rich Markdown**      | Full rendering of code blocks, tables, lists, and quotes                                            |
-| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini/OpenCode Go wire protocols                 |
+| **Model registry**     | Multiple endpoints, per-model API keys, and OpenAI/Gemini/OpenCode Go wire protocols                |
 | **Prompt templates**   | Personal library of system prompts (edited in `$EDITOR`)                                            |
 | **Streaming chat**     | Per-response telemetry (tokens/s, time-to-first-token)                                              |
 | **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`)     |
@@ -123,14 +123,40 @@ dejima --root ./.dejima
 
 ### models.toml (required)
 
-| Field               | Description                                                                                                                                            |
-| :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`              | **Required**: Unique registry key and the model ID sent to the API.                                                                                    |
-| `endpoint`          | **Required**: The URL to POST to (depends on `protocol`).                                                                                              |
-| `friendly_name`     | _Optional_: Human label for the `/model` popup and chat headers.                                                                                       |
-| `api_key_env`       | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                            |
-| `protocol`          | _Optional_: Wire protocol: `"openai"` (default), `"gemini"`, or `"opencode-go"`.                                                                       |
-| `hyperparams`       | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, a `payload` map (value → any JSON value), and a `default` scalar. The default is sent when the session has no explicit selection; it is matched to a declared value by canonical text and is never persisted. Set via `/hyper-params`. |
+| Field                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`                      | **Required**: Unique registry key and the model ID sent to the API.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `endpoint`                  | **Required**: The URL to POST to (depends on `protocol`).                                                                                                                                                                                                                                                                                                                                                                                               |
+| `friendly_name`             | _Optional_: Human label for the `/model` popup and chat headers.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `reasoning_replay`          | _Optional_: How much stored reasoning is replayed to the model: `"off"` (default), `"present"`, `"strict"`, or `"content"`. `"present"` replays reasoning when it exists; `"strict"` is required for DeepSeek agent mode and also covers turns without reasoning; `"content"` puts the reasoning into the message text. Gemini supports `"off"`/`"content"`; `"present"`/`"strict"` have no effect there.                                               |
+| `reasoning_replay_fallback` | _Optional_: Text used by `"strict"` for turns without stored reasoning (default: empty; use a single space if your provider rejects an empty value).                                                                                                                                                                                                                                                                                                    |
+| `api_key_env`               | _Optional_: Name of the env var holding the API key (never stored on disk).                                                                                                                                                                                                                                                                                                                                                                             |
+| `protocol`                  | _Optional_: Wire protocol: `"openai"` (default), `"gemini"`, or `"opencode-go"`.                                                                                                                                                                                                                                                                                                                                                                        |
+| `hyperparams`               | _Optional_ (`[model.hyperparams.<name>]` sub-tables): arbitrary generation parameters. Each declares `values` (non-empty scalar choices) and may declare `label`, an optional `path` array for nested body keys, a `payload` map (value → any JSON value), and a `default` scalar. The default is sent when the session has no explicit selection; it is matched to a declared value by canonical text and is never persisted. Set via `/hyper-params`. |
+
+### Reasoning replay modes
+
+`reasoning_replay` controls what Dejima does with reasoning the model returned in earlier turns. The current turn's reasoning is never replayed to itself; it is stored and used on the next request. "Has reasoning" means the stored message already contains non-empty reasoning from the server's earlier response.
+
+| Mode        | When it applies                                         | Messages with reasoning                 | Messages without reasoning  |
+| ----------- | ------------------------------------------------------- | --------------------------------------- | --------------------------- |
+| `"off"`     | Always                                                  | Nothing                                 | Nothing                     |
+| `"present"` | Always (agent on or off)                                | Replay the reasoning                    | Nothing                     |
+| `"strict"`  | Only while agent mode is on (the request carries tools) | Replay the reasoning                    | Fallback (empty by default) |
+| `"content"` | Always (agent on or off)                                | Put the reasoning into the message text | Nothing                     |
+
+- `"present"` replays only what the model actually reasoned about. It also works in plain chat.
+- `"strict"` is for providers that require the reasoning field on every previous assistant message once tools are present. Without agent mode it does nothing. `reasoning_replay_fallback` is a placeholder that satisfies that requirement; it is not new reasoning. Use `" "` if your provider rejects an empty value.
+- `"content"` is for servers that do not accept a separate reasoning field. It puts the reasoning into the message text and does not satisfy providers that require the separate field (such as DeepSeek).
+
+Provider guidance:
+
+| Model family            | Recommended `reasoning_replay`                                                  |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| DeepSeek (agent mode)   | `"strict"` — `"present"` can fail; `"content"` does not satisfy the requirement |
+| GLM                     | `"present"`; use `"strict"` if turns without reasoning fail                     |
+| Native Gemini           | `"off"` or `"content"`; `"present"`/`"strict"` have no effect                   |
+| Other OpenAI-compatible | `"off"` unless the server supports reasoning replay                             |
 
 **Example Configuration:**
 
@@ -246,9 +272,7 @@ true`, `target_lang = "en"`, and `glossary = "project"` sends:
 ```json
 {
   "model": "qwen3-local",
-  "messages": [
-    { "role": "user", "content": "こんにちは" }
-  ],
+  "messages": [{ "role": "user", "content": "こんにちは" }],
   "stream": true,
   "stream_options": { "include_usage": true },
   "chat_template_kwargs": {
@@ -408,21 +432,21 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 
 #### Commands
 
-| Command           | What it does                                                                        |
-| :---------------- | :---------------------------------------------------------------------------------- |
-| `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                |
-| `/timeline`       | Jump to a User or Assistant message in the current session                          |
-| `/model`          | Choose the active model                                                             |
+| Command           | What it does                                                                                                 |
+| :---------------- | :----------------------------------------------------------------------------------------------------------- |
+| `/session`        | Open sessions popup: create, rename, delete, branch, switch, preview                                         |
+| `/timeline`       | Jump to a User or Assistant message in the current session                                                   |
+| `/model`          | Choose the active model                                                                                      |
 | `/hyper-params`   | Set arbitrary generation hyperparameters; two-level value popup, `c` clears (or resets to the model default) |
-| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                       |
-| `/edit`           | Edit the whole chat history in `$EDITOR`                                            |
-| `/preview`        | Read the chat history in `preview_command` (read-only; falls back to the editor)    |
-| `/editor [text]`  | Compose the pending message in `$EDITOR`                                            |
-| `/copy`           | Copy the last reply to the clipboard                                                |
-| `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)                  |
-| `/generate-title` | Name the session from the conversation                                              |
-| `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off |
-| `/quit`           | Quit                                                                                |
+| `/prompt`         | Prompt templates: select, create, edit, rename, delete, clear                                                |
+| `/edit`           | Edit the whole chat history in `$EDITOR`                                                                     |
+| `/preview`        | Read the chat history in `preview_command` (read-only; falls back to the editor)                             |
+| `/editor [text]`  | Compose the pending message in `$EDITOR`                                                                     |
+| `/copy`           | Copy the last reply to the clipboard                                                                         |
+| `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)                                           |
+| `/generate-title` | Name the session from the conversation                                                                       |
+| `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off                          |
+| `/quit`           | Quit                                                                                                         |
 
 `/timeline` lists User and Assistant messages only. Rows show a fixed 1-based
 index and use the chat sender colours; `Enter` jumps to the selected message,
