@@ -474,7 +474,7 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)                                           |
 | `/generate-title` | Name the session from the conversation                                                                       |
 | `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit, subagent); stays on until toggled off          |
-| `/subagent`       | Browse the configured subagents (see `subagents/`)                                                            |
+| `/subagent`       | Delegate: `/subagent <name> [request]`; bare `/subagent` browses the roster (see `subagents/`)               |
 | `/quit`           | Quit                                                                                                         |
 
 Press `Ctrl-k` while composing to choose any command from a popup: type to
@@ -574,6 +574,13 @@ The whole roster is capped at about 4 KB (`… (roster truncated)`).
 - The model writes the briefing itself and may delegate whenever a subagent
   fits — you do not have to name one. The subagent sees only that briefing
   plus its own `system_prompt`, never your conversation.
+- You can also request one directly: `/subagent review check the latest
+  commit` sends a validated directive (the name is checked against the
+  roster, so a typo never reaches the model; agent mode must be on and
+  `[agent] subagent` must not be `deny`); the model then composes the
+  briefing and calls the tool. A name-only `/subagent review` leaves the
+  briefing to the conversation context. Forgetting the name is fine — bare
+  `/subagent` opens the roster and `Enter` completes the name for you.
 - Each spawn asks for confirmation (`[agent] subagent = "ask" | "auto" |
   "deny"`); the subagent's own tool calls are approved separately under the
   same `[agent]` policies.
@@ -598,7 +605,6 @@ Two `Esc` presses cancel the whole turn including the run.
 
 - Definitions load once at startup: restart Dejima after adding or editing
   one; a malformed file aborts startup naming the file and key.
-- `/subagent` lists the configured subagents (browse only).
 - Every finished or cancelled run is appended to
   `sessions/{id}.subagents.toml` (definition snapshot, briefing, tool-call
   trail, report) as an audit trail. A report deleted from the transcript can
@@ -613,7 +619,7 @@ Type `/` at the start of the input to start a slash command, or press `Ctrl-k`
 anywhere to pick one from the palette. Free-text typing is not remappable.
 
 <details>
-<summary><strong>Full keybinding reference (all 36 actions, by context)</strong></summary>
+<summary><strong>Full keybinding reference (all 37 actions, by context)</strong></summary>
 
 ##### Main input
 
@@ -633,7 +639,7 @@ anywhere to pick one from the palette. Free-text typing is not remappable.
 ##### Shared list popups
 
 These bindings work in `/session`, `/model`, `/prompt`, `/hyper-params`,
-`/timeline`, and the command palette.
+`/timeline`, `/subagent`, and the command palette.
 
 | Action id | Default keys | Action |
 | :--- | :--- | :--- |
@@ -694,6 +700,12 @@ closes the popup.
 | Action id | Default keys | Action |
 | :--- | :--- | :--- |
 | `timeline_jump` | `Enter` | Jump the transcript to the selected message. |
+
+##### Subagent popup (`/subagent`)
+
+| Action id | Default keys | Action |
+| :--- | :--- | :--- |
+| `subagent_complete` | `Enter` | Complete `/subagent <name> ` into the input, ready for the request. |
 
 ##### Confirmation dialogs
 
