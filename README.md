@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 | **Reasoning display**  | Support for models with chain-of-thought (e.g., DeepSeek `reasoning_content`, Gemini `thought`)     |
 | **History editing**    | Edit chat history directly in `$EDITOR`                                                             |
 | **Chat scrollbar**     | Scrollable conversation view using `Ctrl-u` / `Ctrl-d`                                              |
-| **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, in a loop until it answers        |
+| **Agent mode**         | Let the model use tools (`/agent`): `bash`, file read/write/edit, and configured `subagent`s, in a loop until it answers        |
 | **Tool approvals**     | Per-tool `ask`/`auto`/`deny` with a diff preview (`Tab` shows the chat); every tool asks by default |
 | **Danger guardrails**  | Typed-`YES` confirmation for configured `[agent.danger]` commands and paths                         |
 | **Post-response hook** | Execute any shell command after each reply (e.g., desktop notifications)                            |
@@ -89,6 +89,8 @@ By default, all files live in `~/.config/dejima/`:
 ├── dejima.log        # error log (auto-created): transcript of error toasts
 ├── prompts/          # one Markdown file per system-prompt template
 │   └── rust-expert.md    # filename (minus .md) is the template name
+├── subagents/        # optional: one TOML file per subagent (ADR-0185)
+│   └── review.toml       # filename (minus .toml) is the subagent name
 └── sessions/         # chat history (TOML), managed automatically
 ```
 
@@ -413,6 +415,7 @@ paths = [".env", ".git", "~", "../"]
 | `editor_command`           | Editor used by `/editor`, `/edit`, `Ctrl-o`. Overrides `$EDITOR`; defaults to `$EDITOR`, then `vim`.                                                                                                                                                                                  |
 | `preview_command`          | Viewer for `/preview` only. Falls back to `editor_command` → `$EDITOR` → `vim`. Prefer a blocking command (e.g. `glow -p`, `code -w`); the temp file is removed on return and has no `.md` extension, so extension-based viewers show plain text.                                     |
 | `[agent]`                  | Per-tool approval for agentic mode: `ask` (default), `auto`, or `deny`. `deny` hides the tool from the model. An invalid policy, or a `shell` value that uses an approval keyword, aborts startup.                                                                                    |
+| `[agent] subagent`         | Approval for the `subagent` tool (default `ask`): every delegation the model requests is confirmed.                                                                                                                                                                                   |
 | `[agent] shell`            | Shell prefix for the bash tool (default `sh -c`; e.g. `zsh -l -c`).                                                                                                                                                                                                                   |
 | `[agent] ask_hook_command` | Shell command run when a tool-confirmation prompt appears; shares `hook_shell`.                                                                                                                                                                                                       |
 | `[agent] bash_timeout`     | Per-run limit for the bash tool in seconds (1–3600; default 120).                                                                                                                                                                                                                     |
@@ -470,7 +473,8 @@ Type a message and press `Enter`. The reply streams in live. Two `Esc` presses w
 | `/copy`           | Copy the last reply to the clipboard                                                                         |
 | `/regenerate`     | Discard last reply and re-generate (archived to `{id}.trash.toml`)                                           |
 | `/generate-title` | Name the session from the conversation                                                                       |
-| `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit); stays on until toggled off                          |
+| `/agent`          | Toggle agentic mode (tools: bash, file read/write/edit, subagent); stays on until toggled off          |
+| `/subagent`       | Browse the configured subagents (see `subagents/`)                                                            |
 | `/quit`           | Quit                                                                                                         |
 
 Press `Ctrl-k` while composing to choose any command from a popup: type to
@@ -487,7 +491,8 @@ navigate.
 
 Run `/agent` to let the model call tools in a loop until it replies in plain
 text. It works with both OpenAI-compatible and native Gemini models. The tools
-are `bash`, `read_file`, `write_file`, and `edit_file`; file tools are confined
+are `bash`, `read_file`, `write_file`, `edit_file`, and — when you have
+defined subagents — `subagent` (see below); file tools are confined
 to the workspace root.
 
 <details>
@@ -529,6 +534,75 @@ While Dejima is busy, the input line shows `Thinking...` and rejects input. Two
 unanswered tool call is recorded as `Cancelled by user.`
 
 Run `/agent` again to turn it off.
+
+#### Subagents
+
+A subagent is a named assistant you configure once and the model calls on its
+own — a reviewer, a code explorer, a web searcher. One TOML file per subagent:
+
+```toml
+# ~/.config/dejima/subagents/review.toml
+system_prompt = '''You are a strict code reviewer. Inspect the workspace with
+read_file/bash (git diff, cargo clippy/test) and report findings with file:line
+refs.'''
+tools = ["read_file", "bash"]   # optional; only listed tools are offered
+model = "deepseek-v3"           # optional; default = the session's model
+description = "Code review"     # optional; shown in the roster and /subagent
+```
+
+| Key | Required | Meaning |
+| :--- | :--- | :--- |
+| **file name** | yes | the subagent's name (`review.toml` → `review`); no spaces or path separators |
+| `system_prompt` | yes | its persona and instructions |
+| `tools` | no | whitelist — only these tools are offered; **omitted = none** (a consultation-only subagent that works with any model) |
+| `model` | no | model for the run; must exist in `models.toml` |
+| `description` | no | one-line label used in the roster and the `/subagent` popup |
+
+**What the model sees** (the tool's description lists every definition as
+`name — description (tools: …)`):
+
+| Sent to the model | Never sent |
+| :--- | :--- |
+| the name, `description` (one line, clipped at 120 characters, `(no description)` if omitted), and the `tools` list (`no tools` if empty) | `system_prompt`, `model` |
+
+The roster appears only when agent mode is on, the protocol supports tool
+calls, at least one definition exists, and `[agent] subagent` is not `deny`.
+The whole roster is capped at about 4 KB (`… (roster truncated)`).
+
+**How a delegation runs**
+
+- The model writes the briefing itself and may delegate whenever a subagent
+  fits — you do not have to name one. The subagent sees only that briefing
+  plus its own `system_prompt`, never your conversation.
+- Each spawn asks for confirmation (`[agent] subagent = "ask" | "auto" |
+  "deny"`); the subagent's own tool calls are approved separately under the
+  same `[agent]` policies.
+- Its `tools` whitelist is enforced, it cannot call another subagent, and
+  `max_rounds` caps its loop with the same value as the main loop.
+- The final report returns as the tool result in the same turn, so the model
+  can act on the findings immediately. A round-limited or failed run still
+  delivers what it produced, above a short outcome line.
+
+**Watching a run** — cyan means "subagent":
+
+| Surface | What it shows |
+| :--- | :--- |
+| busy line | `⠋ subagent review · round 3 · bash: cargo test` |
+| chat pane | the narration under a cyan `⠿` label, with its live thinking in a branded block |
+| tool confirmations | `subagent review · Run bash command?` with a cyan title |
+| live Bash pane | `⠋ subagent review · ⚙ bash …` |
+
+Two `Esc` presses cancel the whole turn including the run.
+
+**Files and lifecycle**
+
+- Definitions load once at startup: restart Dejima after adding or editing
+  one; a malformed file aborts startup naming the file and key.
+- `/subagent` lists the configured subagents (browse only).
+- Every finished or cancelled run is appended to
+  `sessions/{id}.subagents.toml` (definition snapshot, briefing, tool-call
+  trail, report) as an audit trail. A report deleted from the transcript can
+  be copied back from there by hand.
 
 #### Keyboard Shortcuts
 
