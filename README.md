@@ -608,7 +608,8 @@ Two `Esc` presses cancel the whole turn including the run.
 - Every finished or cancelled run is appended to
   `sessions/{id}.subagents.toml` (definition snapshot, briefing, tool-call
   trail, report) as an audit trail. A report deleted from the transcript can
-  be copied back from there by hand.
+  be copied back from there by hand; deleting the session removes the
+  archive file with it.
 
 #### Keyboard Shortcuts
 
