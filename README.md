@@ -267,6 +267,9 @@ refs.'''
 tools = ["read_file", "bash"]   # optional; only listed tools are offered
 model = "deepseek-v3"           # optional; default = the session's model
 description = "Code review"     # optional; shown in the roster and /subagent
+
+[hyperparams]                   # optional; requires an explicit model
+temperature = "0.2"             # a choice id as a string, as declared in models.toml
 ```
 
 - A subagent sees only the briefing the main model writes plus its own `system_prompt` — never your full chat history.
@@ -281,14 +284,15 @@ description = "Code review"     # optional; shown in the roster and /subagent
 | **file name** | yes | The subagent's name (`review.toml` → `review`); no spaces or path separators. |
 | `system_prompt` | yes | Its persona and instructions. |
 | `tools` | no | Whitelist — only these tools are offered; **omitted = none** (a consultation-only subagent that works with any model). |
-| `model` | no | Model for the run; must exist in `models.toml`. |
+| `model` | no | Model for the run; must exist in `models.toml`. Required when `hyperparams` is non-empty. |
 | `description` | no | One-line label used in the roster and the `/subagent` popup. |
+| `hyperparams` | no | Generation-parameter selections: each entry maps a parameter name declared under `[model.hyperparams.<name>]` of the definition's `model` to one of its values, written as a string (`temperature = "0.2"`). A selection overrides the model's default for that subagent's runs only; unselected parameters keep the model default. |
 
 **What the model sees** (the tool's description lists every definition as `name — description (tools: …)`):
 
 | Sent to the model | Never sent |
 | :--- | :--- |
-| The name, `description` (one line, clipped at 120 characters, `(no description)` if omitted), and the `tools` list (`no tools` if empty). | `system_prompt`, `model`. |
+| The name, `description` (one line, clipped at 120 characters, `(no description)` if omitted), and the `tools` list (`no tools` if empty). | `system_prompt`, `model`, `hyperparams`. |
 
 The roster appears only when agent mode is on, the protocol supports tool calls, at least one definition exists, and `[agent] subagent` is not `deny`. The whole roster is capped at about 4 KB (`… (roster truncated)`).
 
@@ -298,6 +302,7 @@ The roster appears only when agent mode is on, the protocol supports tool calls,
 - You can also request one directly: `/subagent review check the latest commit` sends a validated directive (the name is checked against the roster, so a typo never reaches the model; agent mode must be on and `[agent] subagent` must not be `deny`); the model then composes the briefing and calls the tool. A name-only `/subagent review` leaves the briefing to the conversation context. Forgetting the name is fine — bare `/subagent` opens the roster and `Enter` completes the name for you.
 - Each spawn asks for confirmation (`[agent] subagent = "ask" | "auto" | "deny"`); the subagent's own tool calls are approved separately under the same `[agent]` policies.
 - Its `tools` whitelist is enforced, it cannot call another subagent, and `max_rounds` caps its loop with the same value as the main loop.
+- Declared `hyperparams` are validated at startup against the definition's model (the parameter must exist and the value must be one of its declared values — a typo aborts the start naming the file and key), and the run archive records them.
 - The final report returns as the tool result in the same turn, so the model can act on the findings immediately. A round-limited or failed run still delivers what it produced, above a short outcome line.
 
 **Watching a run** — cyan means "subagent":
