@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/79bed8be-ec23-44ba-8027-ba5f7b0fcba0
 | **Sessions** | Create, rename, delete, branch, switch, and preview chats; auto-save; title generation. |
 | **Chat** | Streaming Markdown (code, tables, quotes), chain-of-thought display, and per-response tokens/s plus time to first token (TTFT). |
 | **Models** | OpenAI-compatible endpoints, native Google Gemini, and OpenCode Go; per-model API keys; selectable hyperparameters. |
-| **Agent mode** | `bash`, `read_file`, `write_file`, `edit_file`, and subagents in a loop; per-tool `ask`/`auto`/`deny`; diff previews; typed-`YES` guardrails. |
+| **Agent mode** | `bash`, `read_file`, `write_file`, `edit_file`, and subagents in a loop — recorded runs you can resume; per-tool `ask`/`auto`/`deny`; diff previews; typed-`YES` guardrails. |
 | **Input & customization** | Prompt templates, message snippets, `$EDITOR` history editing, post-response and approval hooks, remappable keys. |
 | **Privacy** | No telemetry, no background requests, and plain-text sessions that stay on your machine. |
 
@@ -87,7 +87,7 @@ Type `/` at the start of the input to start a slash command, or press `Ctrl-k` w
 | Chat | `/regenerate` | Discard and regenerate the last reply (archived to `{id}.trash.toml`). |
 | Chat | `/generate-title` | Name the session from the conversation. |
 | Agent | `/agent` | Toggle agent mode on or off. |
-| Agent | `/subagent <name> [request]` | Delegate to a subagent; bare `/subagent` opens the roster. |
+| Agent | `/subagent <name> [request]`, `/subagent <name> resume <id> [request]` | Delegate to a subagent, or continue a recorded run with its full context; bare `/subagent` opens the roster. |
 | App | `/quit` | Quit Dejima. |
 
 Commands that take no arguments reject trailing text (for example `/prompt foo`); `/editor [text]` and `/subagent <name> [request]` accept it. A message whose text only starts with a command name — with no separating space, such as `/snippets are useful` — is sent normally.
@@ -201,7 +201,7 @@ Typed characters narrow the list once filtering is active (always active in the 
 
 | Action id | Default keys | Action |
 | :--- | :--- | :--- |
-| `subagent_complete` | `Enter` | Complete `/subagent <name> ` into the input, ready for the request. |
+| `subagent_complete` | `Enter` | Complete `/subagent <name> ` — or, for a recorded run, `/subagent <name> resume <id> ` — into the input. |
 
 #### Confirmation dialogs
 
@@ -274,7 +274,7 @@ temperature = "0.2"             # a choice id as a string, as declared in models
 
 - A subagent sees only the briefing the main model writes plus its own `system_prompt` — never your full chat history.
 - Spawns and the subagent's own tool calls follow the `[agent]` approval policies. A subagent cannot call another subagent.
-- Completed runs are archived to `sessions/{id}.subagents.toml`. Definitions load at startup.
+- Every run is recorded — a per-run transcript plus an index — and stays resumable, across cancels, session switches, and restarts (see below). Definitions load at startup.
 
 <details>
 <summary><strong>Subagent reference: fields, delegation, and lifecycle</strong></summary>
@@ -304,6 +304,7 @@ The roster appears only when agent mode is on, the protocol supports tool calls,
 - Its `tools` whitelist is enforced, it cannot call another subagent, and `max_rounds` caps its loop with the same value as the main loop.
 - Declared `hyperparams` are validated at startup against the definition's model (the parameter must exist and the value must be one of its declared values — a typo aborts the start naming the file and key), and the run archive records them.
 - The final report returns as the tool result in the same turn, so the model can act on the findings immediately. A round-limited or failed run still delivers what it produced, above a short outcome line.
+- Every run is recorded and stays resumable: `/subagent <name> resume <id> [request]` — or the model's own `subagent` call with `resume: <id>` (the resumable list rides the tool description) — continues it with the full prior context: the original briefing, every round, the reasoning, and the report. The follow-up briefing rides as the last user turn; the run keeps its token, model, and settings, and starts a fresh round budget. Refusals (an unknown id, a different subagent, a missing transcript) answer as errors the model can correct.
 
 **Watching a run** — cyan means "subagent":
 
@@ -314,12 +315,12 @@ The roster appears only when agent mode is on, the protocol supports tool calls,
 | tool confirmations | `subagent review · Run bash command?` with a cyan title. |
 | live Bash pane | `⠋ subagent review · ⚙ bash …` |
 
-Two `Esc` presses cancel the whole turn including the run.
+Two `Esc` presses cancel the whole turn including the run — the run is recorded and stays resumable, so a later `/subagent <name> resume <id>` picks up where it stopped.
 
 **Files and lifecycle**
 
 - Definitions load once at startup: restart Dejima after adding or editing one; a malformed file aborts startup naming the file and key.
-- Every finished or cancelled run is appended to `sessions/{id}.subagents.toml` (definition snapshot, briefing, tool-call trail, report) as an audit trail. A report deleted from the transcript can be copied back from there by hand; deleting the session removes the archive file with it.
+- Every terminal — finished, cancelled, or aborted by a session switch — records a per-run transcript (`sessions/{id}.subagents/{run_id}.toml`, the run's token and full history in the `/edit` format) and a slim index record (`sessions/{id}.subagents.toml`: the run id, definition snapshot, effective model, and report head). Deleting the session removes both with it; branching a session copies both to the new session, so inherited runs stay resumable there. A report deleted from the transcript can still be copied back by hand from the transcript file.
 
 </details>
 
